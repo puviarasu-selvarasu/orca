@@ -42,6 +42,34 @@
 ## 🏗️ Architecture
 
 
+┌─────────────────────────────────────────────────────────────┐
+│ Browser (Alpine.js) │
+│ ┌──────────┐ ┌──────────────┐ ┌────────────────────┐ │
+│ │ Sidebar │ │ Chat Panel │ │ Builder Console │ │
+│ └────┬─────┘ └──────┬───────┘ └─────────┬──────────┘ │
+│ │ │ │ │
+│ └───────────────┼─────────────────────┘ │
+│ │ │
+│ Django Backend (ASGI/WSGI) │
+│ ┌────────────────────┼──────────────────────────────────┐ │
+│ │ chat/ │ rag/ │ sandbox/ │ oracle/ │ vision/ │ │
+│ └─────────┴────────┴────────────┴───────────┴───────────┘ │
+│ │ │
+│ ┌───────┴───────┐ │
+│ │ Local LLM │ (llama-cpp-python) │
+│ │ (Phi-3 GGUF) │ │
+│ └───────────────┘ │
+│ │ │
+│ ┌───────┴───────┐ │
+│ │ ChromaDB │ (Vector Search) │
+│ └───────────────┘ │
+│ │ │
+│ ┌───────┴───────┐ │
+│ │ SQLite │ (Threads, Messages, Logs) │
+│ └───────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+
 ---
 
 ## 🛠️ Tech Stack
@@ -145,3 +173,11 @@ Self‑Healing Loop – Autonomous error correction for generated code.
 Mobile App – React Native companion for phone access.
 
 Built by Puviarasu-Selvarasu – feel free to reach out for questions or collaborations.
+
+### Login
+
+![Login Page](image.png)
+
+### Dashboard
+
+![Dashboard](image-1.png)
