@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O.R.C.A. Login</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/orca.css' %}">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: var(--bg-primary);
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            margin: 0;
+            padding: 20px;
+        }
+        .login-box {
+            background: var(--bg-panel);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 50px 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 0 60px rgba(0, 240, 255, 0.05);
+            text-align: center;
+        }
+        .login-box h1 {
+            font-size: 2.8em;
+            letter-spacing: 6px;
+            color: var(--text-accent);
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+            margin-bottom: 4px;
+        }
+        .login-box h1 span { color: #ffffff; }
+        .login-box .subtitle {
+            color: #4a5a6a;
+            font-size: 0.8em;
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-glow);
+            padding-bottom: 20px;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 8px 0 16px 0;
+            background: rgba(10, 14, 23, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: #ffffff;
+            font-family: var(--font-mono);
+            transition: 0.3s;
+            box-sizing: border-box;
+        }
+        .login-box input:focus {
+            border-color: var(--text-accent);
+            outline: none;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+        }
+        .login-box button {
+            width: 100%;
+            padding: 14px;
+            background: var(--text-accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: 0.3s;
+            font-family: var(--font-mono);
+        }
+        .login-box button:hover {
+            background: #00ccdd;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+            transform: scale(1.01);
+        }
+        .login-box .error {
+            color: var(--text-danger);
+            font-size: 0.8em;
+            margin-bottom: 12px;
+            background: rgba(255, 107, 107, 0.1);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .login-box .footer-text {
+            margin-top: 20px;
+            font-size: 0.6em;
+            color: #2a3a4a;
+            letter-spacing: 2px;
+        }
+        label {
+            display: block;
+            text-align: left;
+            font-size: 0.7em;
+            color: #4a5a6a;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1><span>O</span>.<span>R</span>.<span>C</span>.<span>A</span></h1>
+        <div class="subtitle">On-device Resource-Constrained Assistant</div>
+        
+        {% if form.errors %}
+        <div class="error">⚠️ Invalid username or password.</div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <label for="id_username">Username</label>
+            {{ form.username }}
+            <label for="id_password">Password</label>
+            {{ form.password }}
+            <button type="submit">Enter</button>
+        </form>
+        <div class="footer-text">⚡ Secure Local Access • Zero Cloud</div>
+    </div>
+</body>
+</html>

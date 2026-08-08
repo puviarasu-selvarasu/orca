@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}O.R.C.A.{% endblock %}</title>
+    {% load static %}
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+    <link rel="stylesheet" href="{% static 'css/orca.css' %}">
+    <!-- Upgrade 1: Sci-Fi Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="logo">
+            <span>O</span>.<span>R</span>.<span>C</span>.<span>A</span>
+            <!-- Upgrade 3: Pulse Dot -->
+            <span class="pulse-dot"></span>
+        </div>
+        <div class="system-metrics">
+            <div class="metric-item">
+                <span>CPU</span>
+                <div class="metric-bar">
+                    <div class="metric-bar-fill" id="cpu-fill" style="width:0%"></div>
+                </div>
+                <span id="cpu-text">0%</span>
+            </div>
+            <div class="metric-item">
+                <span>RAM</span>
+                <div class="metric-bar">
+                    <div class="metric-bar-fill" id="ram-fill" style="width:0%"></div>
+                </div>
+                <span id="ram-text">0%</span>
+            </div>
+            {% if user.is_authenticated %}
+            <a href="{% url 'logout' %}" class="logout-btn">EXIT</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <span>O.R.C.A. v0.3 | On-device Resource-Constrained Assistant</span>
+    </footer>
+
+    <!-- SCRIPTS -->
+    <script src="{% static 'js/alpine.min.js' %}" defer></script>
+    <script src="{% static 'js/orca.js' %}"></script>
+    {% block extra_scripts %}{% endblock %}
+
+</body>
+</html>
