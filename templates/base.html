@@ -7,7 +7,6 @@
     {% load static %}
     <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'css/orca.css' %}">
-    <!-- Upgrade 1: Sci-Fi Font -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
     {% block extra_head %}{% endblock %}
 </head>
@@ -17,7 +16,6 @@
     <header class="header">
         <div class="logo">
             <span>O</span>.<span>R</span>.<span>C</span>.<span>A</span>
-            <!-- Upgrade 3: Pulse Dot -->
             <span class="pulse-dot"></span>
         </div>
         <div class="system-metrics">
@@ -52,8 +50,8 @@
     </footer>
 
     <!-- SCRIPTS -->
+    <script src="{% static 'js/app.js' %}"></script>
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
-    <script src="{% static 'js/orca.js' %}"></script>
     {% block extra_scripts %}{% endblock %}
 
 </body>

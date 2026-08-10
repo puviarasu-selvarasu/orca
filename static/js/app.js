@@ -1,163 +1,26 @@
 // ============================================================
-// O.R.C.A. - Threaded Chat Controller (v4.2 with Toast Notifications)
+// O.R.C.A. APP – Consolidated (Sprint 0, Step 2)
 // ============================================================
 
-function chatApp() {
-    return {
-        threads: [],
-        currentThreadId: null,
+document.addEventListener('alpine:init', () => {
+
+    // ============================================================
+    // 1. CORE STORE (Shared State)
+    // ============================================================
+    Alpine.store('chatEngine', {
         messages: [],
         inputMessage: '',
-        isStreaming: false,
         isLoading: false,
+        isStreaming: false,
         streamingContent: '',
         streamingComplete: false,
+        currentWorkspaceId: null,
+        workspaceType: 'chat',
 
-        // STATE (Builder)
-        buildPlan: null,
-        buildResults: null,
-        isBuilding: false,
-
-        // STATE (AI Builder)
-        isAIPlanning: false,
-        aiPlanTaskId: null,
-
-        // STATE (Unified Modal)
-        showModal: false,
-        modalType: null,
-        modalData: null,
-        modalCallback: null,
-
-        // ============================================
-        // STATE (Toast Notifications - UI Polish)
-        // ============================================
-        toastVisible: false,
-        toastIcon: '✅',
-        toastTitle: '',
-        toastMessage: '',
-        toastTimeout: null,
-
-        // ============================================
-        // UNIFIED MODAL METHODS
-        // ============================================
-        openModal(type, data, callback) {
-            this.modalType = type;
-            this.modalData = data;
-            this.modalCallback = callback;
-            this.showModal = true;
+        get hasMessages() {
+            return this.messages.length > 0;
         },
 
-        closeModal() {
-            this.showModal = false;
-            this.modalType = null;
-            this.modalData = null;
-            this.modalCallback = null;
-        },
-
-        confirmModal() {
-            if (this.modalCallback) {
-                this.modalCallback(this.modalData);
-            }
-            this.closeModal();
-        },
-
-        // ============================================
-        // TOAST METHODS
-        // ============================================
-        showToast(icon, title, message, duration = 4000) {
-            this.toastIcon = icon;
-            this.toastTitle = title;
-            this.toastMessage = message;
-            this.toastVisible = true;
-            clearTimeout(this.toastTimeout);
-            this.toastTimeout = setTimeout(() => {
-                this.toastVisible = false;
-            }, duration);
-        },
-
-        // ============================================
-        // INIT
-        // ============================================
-        initApp() {
-            const threadsElement = document.getElementById('threads-data');
-            if (threadsElement) {
-                this.threads = JSON.parse(threadsElement.textContent);
-            }
-            const threadIdElement = document.getElementById('current-thread-id');
-            if (threadIdElement) {
-                this.currentThreadId = JSON.parse(threadIdElement.textContent);
-            }
-            const historyElement = document.getElementById('chat-history');
-            if (historyElement) {
-                this.messages = JSON.parse(historyElement.textContent);
-            }
-            setTimeout(() => this.scrollToBottom(), 150);
-        },
-
-        // ============================================
-        // THREAD MANAGEMENT
-        // ============================================
-        async createNewThread() {
-            try {
-                const response = await fetch('/api/threads/create/', {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': this.getCsrfToken() }
-                });
-                const data = await response.json();
-                this.threads = [{ id: data.id, title: data.title }, ...this.threads];
-                this.switchThread(data.id);
-            } catch (e) {
-                alert('Failed to create new thread: ' + e.message);
-            }
-        },
-
-        async switchThread(threadId) {
-            if (threadId === this.currentThreadId) return;
-            this.currentThreadId = threadId;
-            await this.loadMessages(threadId);
-            setTimeout(() => this.scrollToBottom(), 100);
-        },
-
-        deleteThread(threadId) {
-            const thread = this.threads.find(t => t.id === threadId);
-            if (thread) {
-                this.openModal('delete', { threadId: thread.id, threadTitle: thread.title }, (data) => {
-                    this.confirmDeleteThread(data.threadId);
-                });
-            }
-        },
-
-        async confirmDeleteThread(threadId) {
-            try {
-                await fetch(`/api/threads/${threadId}/delete/`, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': this.getCsrfToken() }
-                });
-                this.threads = this.threads.filter(t => t.id !== threadId);
-                if (this.threads.length > 0) {
-                    this.switchThread(this.threads[0].id);
-                } else {
-                    this.createNewThread();
-                }
-            } catch (e) {
-                alert('Failed to delete thread: ' + e.message);
-            }
-        },
-
-        async loadMessages(threadId) {
-            try {
-                const response = await fetch(`/api/threads/${threadId}/messages/`);
-                const data = await response.json();
-                this.messages = data.messages || [];
-                setTimeout(() => this.scrollToBottom(), 100);
-            } catch (e) {
-                console.error('Failed to load messages:', e);
-            }
-        },
-
-        // ============================================
-        // SEND MESSAGE
-        // ============================================
         async sendMessage() {
             if (!this.inputMessage.trim() || this.isLoading) return;
 
@@ -171,8 +34,13 @@ function chatApp() {
             this.messages = [...this.messages, { role: 'user', content: msg }];
             this.scrollToBottom();
 
+            let endpoint = `/api/chat/${this.currentWorkspaceId}/stream/`;
+            if (this.workspaceType === 'project') {
+                endpoint = `/api/project/${this.currentWorkspaceId}/chat/stream/`;
+            }
+
             try {
-                const response = await fetch(`/api/chat/${this.currentThreadId}/stream/`, {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -202,7 +70,7 @@ function chatApp() {
                                 this.isStreaming = false;
                                 this.streamingContent = '';
                                 this.streamingComplete = true;
-                                setTimeout(() => this.scrollToBottom(), 100);
+                                this.scrollToBottom();
                                 this.refreshThreads();
                             } else {
                                 this.streamingContent += data;
@@ -225,13 +93,117 @@ function chatApp() {
             try {
                 const response = await fetch('/api/threads/');
                 const data = await response.json();
-                this.threads = data.threads || [];
+                window.dispatchEvent(new CustomEvent('threads-refreshed', { detail: data.threads }));
             } catch (e) {}
         },
 
+        scrollToBottom() {
+            const el = document.querySelector('#chat-messages');
+            if (el) {
+                // Use requestAnimationFrame to ensure DOM is fully rendered
+                requestAnimationFrame(() => {
+                    el.scrollTop = el.scrollHeight;
+                });
+                // Also set it directly as a fallback
+                setTimeout(() => {
+                    el.scrollTop = el.scrollHeight;
+                }, 50);
+            }
+        },
+
+
+        getCsrfToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    });
+
+    // ============================================================
+    // 2. CHAT WIDGET COMPONENT
+    // ============================================================
+    Alpine.data('chatWidget', (config = {}) => ({
+        workspaceId: config.workspaceId || null,
+        workspaceType: config.workspaceType || 'chat',
+        title: config.title || 'O.R.C.A.',
+
+        init() {
+            const store = Alpine.store('chatEngine');
+            store.currentWorkspaceId = this.workspaceId;
+            store.workspaceType = this.workspaceType;
+
+            if (this.workspaceType === 'project' && this.workspaceId) {
+                this.loadProjectMessages(this.workspaceId);
+            }
+            if (this.workspaceType === 'chat' && !this.workspaceId) {
+                setTimeout(() => store.scrollToBottom(), 100);
+            }
+
+            window.addEventListener('threads-refreshed', (e) => {
+                if (this.workspaceType === 'chat') {
+                    this.$dispatch('threads-updated', e.detail);
+                }
+            });
+        },
+
+        async loadProjectMessages(projectId) {
+            try {
+                const response = await fetch(`/api/project/${projectId}/messages/`);
+                const data = await response.json();
+                const store = Alpine.store('chatEngine');
+                store.messages = data.messages || [];
+                setTimeout(() => store.scrollToBottom(), 100);
+            } catch (e) {
+                console.error('Failed to load project messages:', e);
+            }
+        },
+
         // ============================================
-        // BUILDER MODE
+        // NEW: Expose sendMessage from the store
         // ============================================
+        sendMessage() {
+            this.store.sendMessage();
+        },
+
+        // ============================================
+        // GETTERS (Computed properties)
+        // ============================================
+        get store() { return Alpine.store('chatEngine'); },
+        get messages() { return this.store.messages; },
+        get inputMessage() { return this.store.inputMessage; },
+        set inputMessage(value) { this.store.inputMessage = value; },
+        get isLoading() { return this.store.isLoading; },
+        get isStreaming() { return this.store.isStreaming; },
+        get streamingContent() { return this.store.streamingContent; },
+        get streamingComplete() { return this.store.streamingComplete; },
+        get hasMessages() { return this.store.hasMessages; }
+    }));
+
+
+    // ============================================================
+    // 3. BUILDER COMPONENT
+    // ============================================================
+    Alpine.data('builder', () => ({
+        buildPlan: null,
+        buildResults: null,
+        isBuilding: false,
+        isAIPlanning: false,
+        aiPlanTaskId: null,
+        isUploading: false,
+
+        get store() { return Alpine.store('chatEngine'); },
+        get messages() { return this.store.messages; },
+
         async generateBuildPlan() {
             const lastUserMsg = this.messages.filter(m => m.role === 'user').pop();
             if (!lastUserMsg) {
@@ -245,7 +217,7 @@ function chatApp() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': this.getCsrfToken()
+                        'X-CSRFToken': this.store.getCsrfToken()
                     },
                     body: JSON.stringify({ description: lastUserMsg.content })
                 });
@@ -253,9 +225,7 @@ function chatApp() {
                 if (data.status === 'success') {
                     this.buildPlan = data.plan;
                     this.buildResults = null;
-                    if (data.is_mock) {
-                        this.buildPlan._is_mock = true;
-                    }
+                    if (data.is_mock) this.buildPlan._is_mock = true;
                 } else {
                     alert('Failed to generate plan.');
                 }
@@ -281,7 +251,7 @@ function chatApp() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': this.getCsrfToken()
+                        'X-CSRFToken': this.store.getCsrfToken()
                     },
                     body: JSON.stringify({ description: lastUserMsg.content })
                 });
@@ -301,11 +271,9 @@ function chatApp() {
 
         async pollAIPlan() {
             if (!this.aiPlanTaskId) return;
-
             try {
                 const response = await fetch(`/api/builder/ai-plan/status/${this.aiPlanTaskId}/`);
                 const data = await response.json();
-
                 if (data.status === 'completed') {
                     this.buildPlan = data.result;
                     this.buildPlan._is_mock = false;
@@ -326,8 +294,12 @@ function chatApp() {
 
         async executeBuildPlan() {
             if (!this.buildPlan) return;
-            this.openModal('approve_build', { plan: this.buildPlan }, async (data) => {
-                await this.confirmExecuteBuild(data.plan);
+            this.$dispatch('open-modal', {
+                type: 'approve_build',
+                data: { plan: this.buildPlan },
+                callback: async (result) => {
+                    await this.confirmExecuteBuild(result.plan);
+                }
             });
         },
 
@@ -338,7 +310,7 @@ function chatApp() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': this.getCsrfToken()
+                        'X-CSRFToken': this.store.getCsrfToken()
                     },
                     body: JSON.stringify({ plan: plan })
                 });
@@ -355,11 +327,6 @@ function chatApp() {
             this.isBuilding = false;
         },
 
-        // ============================================
-        // FILE UPLOAD + OCR (Phase 10) - with Toast
-        // ============================================
-        isUploading: false,
-
         async uploadRequirements(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -371,56 +338,68 @@ function chatApp() {
             try {
                 const response = await fetch('/api/builder/upload-requirements/', {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    headers: { 'X-CSRFToken': this.store.getCsrfToken() },
                     body: formData
                 });
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    this.inputMessage = data.text;
+                    this.store.inputMessage = data.text;
                     let msg = `Extracted ${data.text.length} chars from ${data.filename}.`;
                     if (data.truncated) {
                         msg += ` ⚠️ Original was ${data.original_length} chars, truncated to fit context.`;
                     }
-                    this.showToast('📎', 'OCR Complete', msg);
+                    this.$dispatch('show-toast', { icon: '📎', title: 'OCR Complete', message: msg });
                 } else {
-                    this.showToast('❌', 'Upload Failed', data.error);
+                    this.$dispatch('show-toast', { icon: '❌', title: 'Upload Failed', message: data.error });
                 }
             } catch (e) {
-                this.showToast('❌', 'Upload Failed', e.message);
+                this.$dispatch('show-toast', { icon: '❌', title: 'Upload Failed', message: e.message });
             }
 
             this.isUploading = false;
             event.target.value = '';
-        },
-
-        // ============================================
-        // UTILITIES
-        // ============================================
-        scrollToBottom() {
-            const el = document.querySelector('#chat-messages');
-            if (el) {
-                el.scrollTop = el.scrollHeight;
-            }
-        },
-
-        getCsrfToken() {
-            const name = 'csrftoken';
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
         }
-    };
-}
+    }));
+
+    // ============================================================
+    // 4. MODAL COMPONENT
+    // ============================================================
+    Alpine.data('modal', () => ({
+        showModal: false,
+        modalType: null,
+        modalData: null,
+        modalCallback: null,
+
+        init() {
+            this.$el.addEventListener('open-modal', (e) => {
+                this.openModal(e.detail.type, e.detail.data, e.detail.callback);
+            });
+        },
+
+        openModal(type, data, callback) {
+            this.modalType = type;
+            this.modalData = data;
+            this.modalCallback = callback;
+            this.showModal = true;
+        },
+
+        closeModal() {
+            this.showModal = false;
+            this.modalType = null;
+            this.modalData = null;
+            this.modalCallback = null;
+        },
+
+        confirmModal() {
+            if (this.modalCallback) {
+                this.modalCallback(this.modalData);
+            }
+            this.closeModal();
+        }
+    }));
+
+}); // end alpine:init
 
 // ============================================================
 // SYSTEM METRICS (Independent)
@@ -446,5 +425,6 @@ async function fetchMetrics() {
         if (ramText) ramText.textContent = data.ram + '%';
     } catch (e) {}
 }
+
 setInterval(fetchMetrics, 2000);
 fetchMetrics();
