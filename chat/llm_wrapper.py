@@ -36,12 +36,15 @@ def get_llm():
 def generate_stream(prompt, max_tokens=512):
     llm = get_llm()
     if llm is None:
-        yield "⚠️ LLM not loaded. Please check the model path."
+        yield "⚠️ LLM not loaded."
         return
 
-    formatted_prompt = f"<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
+    # ============================================================
+    # QWEN 2.5 CHATML FORMAT (with space after assistant tag)
+    # ============================================================
+    formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n "
 
-    try:  # <-- ADD THIS
+    try:
         response = llm.create_completion(
             prompt=formatted_prompt,
             max_tokens=max_tokens,
@@ -49,16 +52,16 @@ def generate_stream(prompt, max_tokens=512):
             top_p=0.9,
             echo=False,
             stream=True,
-            stop=["<|end|>", "<|user|>", "User:", "Human:", "```"]
+            stop=["<|im_end|>", "<|im_start|>", "User:", "Human:"]
         )
 
         for chunk in response:
             if 'choices' in chunk and len(chunk['choices']) > 0:
                 delta = chunk['choices'][0].get('text', '')
-                # Clean up special tokens
-                delta = delta.replace('<|assistant|>', '').replace('<|user|>', '').replace('</s>', '')
-                if delta:  # Don't strip spaces - this correctly yields " " if there is a space
+                if delta:
+                    # Remove special tokens but KEEP spaces
+                    delta = delta.replace('<|im_end|>', '').replace('<|im_start|>', '')
+                    # DO NOT strip spaces – preserve them
                     yield delta
-
-    except Exception as e:  # <-- Now this is correctly paired with 'try'
+    except Exception as e:
         yield f"⚠️ LLM Error: {str(e)}"

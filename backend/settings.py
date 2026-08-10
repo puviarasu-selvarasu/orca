@@ -110,16 +110,15 @@ GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
 LOCAL_MODE = env.bool('LOCAL_MODE', default=True)  # True on PC, False on Render
 
 # Local LLM Paths (will be used in Phase 3)
-LLM_MODEL_PATH = MODELS_DIR / 'phi-3-mini-4k-instruct-q4_K_M.gguf'
+LLM_MODEL_PATH = MODELS_DIR / 'qwen2.5-1.5b-instruct-q4_k_m.gguf'
 LLM_CONFIG = {
     'n_ctx': 1024,
-    'n_batch': 512,
-    'n_threads': 4,
+    'n_batch': 256,
+    'n_threads': 2,
     'n_gpu_layers': 0,
 }
 
 CHROMA_PERSIST_DIR = DATA_DIR / 'chroma_db'
-LLM_MODEL_PATH = MODELS_DIR / 'phi-3-mini-4k-instruct-q4_K_M.gguf'
 
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = '/accounts/login/'

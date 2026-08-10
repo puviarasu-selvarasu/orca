@@ -372,7 +372,8 @@ document.addEventListener('alpine:init', () => {
         modalCallback: null,
 
         init() {
-            this.$el.addEventListener('open-modal', (e) => {
+            // Listen for open-modal events on window (works across all components)
+            window.addEventListener('open-modal', (e) => {
                 this.openModal(e.detail.type, e.detail.data, e.detail.callback);
             });
         },

@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 from rag.ingestion import query_knowledge
 from chat.llm_wrapper import generate_stream
 from chat.models import ChatThread, ChatMessage
+from .router import route_query
 
 
 # ============================================================
@@ -55,89 +56,78 @@ def system_metrics(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def chat_stream(request, thread_id):
-    """Streaming chat endpoint with RAG + Local LLM + Persistence + Smart Filler Detection."""
     thread = get_object_or_404(ChatThread, id=thread_id, user=request.user)
-    
+
     try:
         data = json.loads(request.body)
         user_message = data.get('message', '')
     except:
         user_message = ''
-    
+
     if not user_message:
         return JsonResponse({'error': 'Message is empty'}, status=400)
 
-    # Truncate user message to avoid token overflow
-    MAX_USER_MSG_CHARS = 400
-    if len(user_message) > MAX_USER_MSG_CHARS:
-        user_message = user_message[:MAX_USER_MSG_CHARS] + "\n\n... (truncated to {} characters)".format(MAX_USER_MSG_CHARS)
-    
+    # ============================================================
+    # SMART ROUTER (Check if we can answer instantly)
+    # ============================================================
+    from .router import route_query
+    routed = route_query(user_message)
+    if routed['handled']:
+        ChatMessage.objects.create(thread=thread, role='user', content=user_message)
+        ChatMessage.objects.create(thread=thread, role='assistant', content=routed['response'])
+
+        def generate_router():
+            yield f"data: {routed['response']}\n\n"
+            yield "data: [DONE]\n\n"
+
+        response = StreamingHttpResponse(generate_router(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache, no-transform'
+        response['X-Accel-Buffering'] = 'no'
+        return response  # <-- CRITICAL: This must be here to stop execution!
+
+    # ============================================================
+    # NORMAL LLM FLOW (Only runs if router doesn't handle it)
+    # ============================================================
+
     # 1. SAVE USER MESSAGE
-    ChatMessage.objects.create(
-        thread=thread,
-        role='user',
-        content=user_message
-    )
-    
+    ChatMessage.objects.create(thread=thread, role='user', content=user_message)
+
     # 2. UPDATE THREAD TITLE
     if thread.messages.count() == 1:
         title = user_message[:50] + ('...' if len(user_message) > 50 else '')
         thread.title = title
         thread.save()
-    
-    # ============================================================
-    # 3. SMART FILLER DETECTION (Prevents ML lectures for "okay")
-    # ============================================================
-    filler_phrases = ['okay', 'got it', 'thanks', 'thank you', 'cool', 'nice', 'alright', 'sure', 'fine']
-    
-    # Check if the message is a short filler
-    is_filler = (
-        len(user_message.split()) <= 3 and 
-        any(phrase in user_message.lower() for phrase in filler_phrases)
-    )
-    
-    context = ""
-    if is_filler:
-        # Skip RAG entirely for filler messages
-        context = "The user is just acknowledging or confirming. Keep your response warm, brief, and conversational. Do not inject technical content or code."
-    else:
-        # 4. RETRIEVE RELEVANT CHUNKS FROM CHROMADB (RAG)
-        relevant_chunks, metadatas = query_knowledge(user_message, n_results=3)
-        context = "\n\n".join(relevant_chunks) if relevant_chunks else "No relevant documents found."
-    
-    # 5. BUILD THE PROMPT
-    system_prompt = f"""You are O.R.C.A., a precise and helpful assistant. Answer the user's question clearly.
 
-RULES:
-- If the user says "okay", "got it", or similar, give a short, friendly acknowledgment.
-- Do not generate code or technical deep-dives unless explicitly asked.
-- Keep responses under 200 words.
+    # 3. RAG RETRIEVAL
+    relevant_chunks, metadatas = query_knowledge(user_message, n_results=3)
+    context = "\n\n".join(relevant_chunks) if relevant_chunks else "No relevant documents found."
 
-Context from the user's knowledge base (use only if relevant to their specific question):
+    # 4. BUILD THE PROMPT
+    system_prompt = f"""You are O.R.C.A., a precise and helpful assistant.
+
+IMPORTANT: You do NOT have access to the current time or date. If the user asks for the time or date, tell them to ask "time" or "date" directly.
+
+Context from user's knowledge base:
 {context}
 
-The user asks: {user_message}
+User question: {user_message}
 
 Your response:"""
     
-    # 6. STREAM RESPONSE
+    # 5. STREAM RESPONSE
     full_response = ""
-    
-    def generate():
+
+    def generate_llm():
         nonlocal full_response
         for token in generate_stream(system_prompt, max_tokens=512):
             full_response += token
             yield f"data: {token}\n\n"
-        
-        ChatMessage.objects.create(
-            thread=thread,
-            role='assistant',
-            content=full_response
-        )
+
+        ChatMessage.objects.create(thread=thread, role='assistant', content=full_response)
         thread.save()
         yield "data: [DONE]\n\n"
-    
-    response = StreamingHttpResponse(generate(), content_type='text/event-stream')
+
+    response = StreamingHttpResponse(generate_llm(), content_type='text/event-stream')
     response['Cache-Control'] = 'no-cache, no-transform'
     response['X-Accel-Buffering'] = 'no'
     return response
