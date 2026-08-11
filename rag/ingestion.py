@@ -1,30 +1,11 @@
 import os
-import sys
+import json
 from pathlib import Path
 from django.conf import settings
-from sentence_transformers import SentenceTransformer
-import chromadb
-from chromadb.config import Settings
-
-# Initialize embedding model (runs locally on CPU, ~80 MB RAM)
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-# Initialize ChromaDB client (persistent, file-based)
-chroma_client = chromadb.PersistentClient(
-    path=str(settings.CHROMA_PERSIST_DIR),
-    settings=Settings(anonymized_telemetry=False)
-)
-
-def get_or_create_collection(name="knowledge"):
-    """Get or create a ChromaDB collection."""
-    try:
-        collection = chroma_client.get_collection(name)
-    except:
-        collection = chroma_client.create_collection(name)
-    return collection
+from .lancedb_client import get_table, embed_batch, embed_text
 
 def chunk_text(text, max_length=500):
-    """Simple recursive chunking by paragraphs or fixed length."""
+    """Simple chunking by words."""
     words = text.split()
     chunks = []
     current_chunk = []
@@ -57,55 +38,60 @@ def read_file(file_path):
                     text += page.extract_text()
             return text
         except ImportError:
-            print("PyPDF2 not installed. Skipping PDF.")
             return ""
-    elif ext in ['.txt', '.md', '.py', '.php', '.html', '.css', '.js']:
+    elif ext in ['.txt', '.md', '.py', '.php', '.html', '.css', '.js', '.json']:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             return f.read()
-    else:
-        return ""
+    return ""
 
-def ingest_folder(folder_path, collection_name="knowledge"):
-    """Recursively ingest all readable files in a folder."""
+def ingest_folder(folder_path, table_name="knowledge"):
+    """Ingest all files in a folder into LanceDB."""
     folder = Path(folder_path)
     if not folder.exists():
-        print(f"Folder {folder_path} does not exist.")
+        print(f"❌ Folder {folder_path} does not exist.")
         return
     
-    collection = get_or_create_collection(collection_name)
+    table = get_table(table_name)
     files_processed = 0
     
     for file_path in folder.rglob('*'):
         if file_path.is_file():
-            print(f"Reading: {file_path}")
+            print(f"📄 Reading: {file_path}")
             text = read_file(str(file_path))
             if text:
                 chunks = chunk_text(text)
                 file_id = str(file_path)
-                
-                # Add to ChromaDB with file path as metadata
+                data = []
                 for i, chunk in enumerate(chunks):
-                    chunk_id = f"{file_id}_chunk_{i}"
-                    collection.add(
-                        documents=[chunk],
-                        metadatas=[{"source": file_id, "chunk": i}],
-                        ids=[chunk_id]
-                    )
+                    vector = embed_text(chunk)
+                    data.append({
+                        "text": chunk,
+                        "vector": vector,
+                        "metadata": json.dumps({"source": file_id, "chunk": i})
+                    })
+                if data:
+                    table.add(data)
                 files_processed += 1
                 print(f"  -> Added {len(chunks)} chunks.")
     
     print(f"✅ Ingestion complete. Processed {files_processed} files.")
 
-def query_knowledge(query, collection_name="knowledge", n_results=5):
-    """Retrieve relevant document chunks for a query."""
-    collection = get_or_create_collection(collection_name)
-    results = collection.query(
-        query_texts=[query],
-        n_results=n_results
-    )
+def query_knowledge(query_text, table_name="knowledge", n_results=5):
+    """Retrieve relevant chunks using LanceDB."""
+    table = get_table(table_name)
+    query_vector = embed_text(query_text)
     
-    # Extract documents and metadata
-    documents = results.get('documents', [[]])[0]
-    metadatas = results.get('metadatas', [[]])[0]
+    # LanceDB native vector search
+    results = table.search(query_vector).limit(n_results).to_pandas()
+    
+    documents = []
+    metadatas = []
+    if not results.empty:
+        for idx, row in results.iterrows():
+            documents.append(row['text'])
+            try:
+                metadatas.append(json.loads(row['metadata']))
+            except:
+                metadatas.append({})
     
     return documents, metadatas
