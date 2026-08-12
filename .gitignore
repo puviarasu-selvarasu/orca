@@ -45,3 +45,8 @@ temp/
 tmp/
 *.tmp
 *.temp
+
+# O.R.C.A. Knowledge Base (Personal Data)
+knowledge/
+knowledge/*
+!knowledge/.gitkeep   # Optional: keeps the folder structure in Git
