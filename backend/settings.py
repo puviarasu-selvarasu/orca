@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'automation.apps.AutomationConfig',
     'oracle.apps.OracleConfig',
     'voice.apps.VoiceConfig',
+    'self_improve.apps.SelfImproveConfig',
     #'django_apscheduler',  # We will install this later
 ]
 

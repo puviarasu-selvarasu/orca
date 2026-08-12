@@ -1,11 +1,17 @@
 import os
 import json
+import numpy as np
 from pathlib import Path
 from django.conf import settings
-from .lancedb_client import get_table, embed_batch, embed_text
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
+from .lancedb_client import get_table, embed_text
+
+# ============================================================
+# TEXT CHUNKING & FILE READING
+# ============================================================
 def chunk_text(text, max_length=500):
-    """Simple chunking by words."""
     words = text.split()
     chunks = []
     current_chunk = []
@@ -26,7 +32,6 @@ def chunk_text(text, max_length=500):
     return chunks
 
 def read_file(file_path):
-    """Read text from common file types."""
     ext = os.path.splitext(file_path)[1].lower()
     if ext == '.pdf':
         try:
@@ -44,8 +49,10 @@ def read_file(file_path):
             return f.read()
     return ""
 
+# ============================================================
+# INGESTION
+# ============================================================
 def ingest_folder(folder_path, table_name="knowledge"):
-    """Ingest all files in a folder into LanceDB."""
     folder = Path(folder_path)
     if not folder.exists():
         print(f"❌ Folder {folder_path} does not exist.")
@@ -76,13 +83,44 @@ def ingest_folder(folder_path, table_name="knowledge"):
     
     print(f"✅ Ingestion complete. Processed {files_processed} files.")
 
+# ============================================================
+# CHAIN-OF-RANK RERANKING (Sprint 6)
+# ============================================================
+def rerank_results(query: str, documents: list, metadatas: list, n_results: int = 3) -> tuple:
+    """
+    Chain-of-Rank: Rerank RAG results to filter contradictions.
+    Returns (reranked_docs, reranked_metadatas)
+    """
+    if len(documents) <= 1:
+        return documents, metadatas
+    
+    query_embedding = embed_text(query)
+    doc_embeddings = [embed_text(doc) for doc in documents]
+    
+    scores = [cosine_similarity([query_embedding], [emb])[0][0] for emb in doc_embeddings]
+    
+    pairs = list(zip(documents, metadatas, scores))
+    sorted_pairs = sorted(pairs, key=lambda x: x[2], reverse=True)
+    
+    top_pairs = sorted_pairs[:n_results]
+    
+    if top_pairs and top_pairs[0][2] < 0.3:
+        return ["No relevant documents found."], [{}]
+    
+    reranked_docs = [p[0] for p in top_pairs]
+    reranked_metadatas = [p[1] for p in top_pairs]
+    
+    return reranked_docs, reranked_metadatas
+
+# ============================================================
+# QUERY KNOWLEDGE (with Chain-of-Rank)
+# ============================================================
 def query_knowledge(query_text, table_name="knowledge", n_results=5):
-    """Retrieve relevant chunks using LanceDB."""
+    """Retrieve relevant chunks using LanceDB and rerank."""
     table = get_table(table_name)
     query_vector = embed_text(query_text)
     
-    # LanceDB native vector search
-    results = table.search(query_vector).limit(n_results).to_pandas()
+    results = table.search(query_vector).limit(n_results * 2).to_pandas()
     
     documents = []
     metadatas = []
@@ -93,5 +131,9 @@ def query_knowledge(query_text, table_name="knowledge", n_results=5):
                 metadatas.append(json.loads(row['metadata']))
             except:
                 metadatas.append({})
+    
+    if documents:
+        reranked_docs, reranked_metadatas = rerank_results(query_text, documents, metadatas, n_results)
+        return reranked_docs, reranked_metadatas
     
     return documents, metadatas

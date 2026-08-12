@@ -22,6 +22,7 @@ from sandbox import builder as builder_views
 from oracle import views as oracle_views
 from voice import views as voice_views
 from sandbox import views as sandbox_views
+from self_improve import views as self_improve_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -65,5 +66,7 @@ urlpatterns = [
     path('api/jarvis/thread/', chat_views.get_or_create_jarvis_thread, name='jarvis_thread'),
 
     path('api/memory/save/', chat_views.save_memory, name='save_memory'),
+
+    path('api/self-improve/run/', self_improve_views.run_optimization, name='run_optimization'),
 
 ]
