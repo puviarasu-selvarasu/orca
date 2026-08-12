@@ -330,8 +330,120 @@ document.addEventListener('alpine:init', () => {
         get hasMessages() { return this.store.hasMessages; }
     }));
 
+
     // ============================================================
-    // 3. BUILDER COMPONENT (UPDATED: Redirect after AI Plan)
+    // 3. DASHBOARD COMPONENT (Decoupled from HTML)
+    // ============================================================
+    Alpine.data('dashboardComponent', () => ({
+        threads: [],
+        currentThreadId: null,
+
+        init() {
+            // Load threads from JSON script
+            const threadsElement = document.getElementById('threads-data');
+            if (threadsElement) {
+                this.threads = JSON.parse(threadsElement.textContent);
+            }
+            // Load current thread ID
+            const threadIdElement = document.getElementById('current-thread-id');
+            if (threadIdElement) {
+                this.currentThreadId = JSON.parse(threadIdElement.textContent);
+            }
+            // Load chat history into the core store
+            const historyElement = document.getElementById('chat-history');
+            if (historyElement) {
+                const store = Alpine.store('chatEngine');
+                store.messages = JSON.parse(historyElement.textContent);
+                store.currentWorkspaceId = this.currentThreadId;
+                store.workspaceType = 'chat';
+                setTimeout(() => store.scrollToBottom(), 150);
+            }
+        },
+
+        async createNewThread() {
+            try {
+                const response = await fetch('/api/threads/create/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() }
+                });
+                const data = await response.json();
+                this.threads = [{ id: data.id, title: data.title }, ...this.threads];
+                this.switchThread(data.id);
+            } catch (e) {
+                alert('Failed to create new thread: ' + e.message);
+            }
+        },
+
+        async switchThread(threadId) {
+            if (threadId === this.currentThreadId) return;
+            this.currentThreadId = threadId;
+            const store = Alpine.store('chatEngine');
+            store.currentWorkspaceId = threadId;
+            await this.loadMessages(threadId);
+            setTimeout(() => store.scrollToBottom(), 100);
+        },
+
+        async loadMessages(threadId) {
+            try {
+                const response = await fetch(`/api/threads/${threadId}/messages/`);
+                const data = await response.json();
+                const store = Alpine.store('chatEngine');
+                store.messages = data.messages || [];
+                setTimeout(() => store.scrollToBottom(), 100);
+            } catch (e) {
+                console.error('Failed to load messages:', e);
+            }
+        },
+
+        deleteThread(threadId) {
+            const thread = this.threads.find(t => t.id === threadId);
+            if (thread) {
+                this.$dispatch('open-modal', {
+                    type: 'delete',
+                    data: { threadId: thread.id, threadTitle: thread.title },
+                    callback: async (result) => {
+                        await this.confirmDeleteThread(result.threadId);
+                    }
+                });
+            }
+        },
+
+        async confirmDeleteThread(threadId) {
+            try {
+                await fetch(`/api/threads/${threadId}/delete/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': this.getCsrfToken() }
+                });
+                this.threads = this.threads.filter(t => t.id !== threadId);
+                if (this.threads.length > 0) {
+                    this.switchThread(this.threads[0].id);
+                } else {
+                    this.createNewThread();
+                }
+            } catch (e) {
+                alert('Failed to delete thread: ' + e.message);
+            }
+        },
+
+        getCsrfToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    }));
+
+    // ============================================================
+    // 4. BUILDER COMPONENT (UPDATED: Redirect after AI Plan)
     // ============================================================
     Alpine.data('builder', () => ({
         buildPlan: null,
@@ -509,7 +621,7 @@ document.addEventListener('alpine:init', () => {
     }));
 
     // ============================================================
-    // 4. MODAL COMPONENT
+    // 5. MODAL COMPONENT
     // ============================================================
     Alpine.data('modal', () => ({
         showModal: false,
