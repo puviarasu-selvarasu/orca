@@ -121,7 +121,7 @@ MAIN APP CONTAINER
      x-init="initApp()">
 
     <!-- ============================================
-    COLUMN 1: SIDEBAR
+    COLUMN 1: SIDEBAR (Threads)
     ============================================ -->
     <div class="sidebar">
         <button @click="createNewThread()" class="btn btn-primary w-full" style="padding:8px; font-size:0.85em; margin-bottom:12px;">
@@ -146,11 +146,64 @@ MAIN APP CONTAINER
     </div>
 
     <!-- ============================================
-    COLUMN 2: CHAT PANEL (FIXED: passes currentThreadId)
+    COLUMN 2: CHAT PANEL (With Welcome + Streaming)
     ============================================ -->
     <div class="chat-panel" x-data="chatWidget({ workspaceType: 'chat', workspaceId: currentThreadId })">
-        {% include 'includes/chat_messages.html' %}
-        {% include 'includes/chat_input.html' %}
+        
+        <div class="chat-messages" id="chat-messages" x-ref="messagesContainer">
+
+            <!-- WELCOME MESSAGE (Shows when NO messages exist) -->
+            <div class="message assistant" x-show="messages.length === 0">
+                <strong>O.R.C.A.</strong><br>
+                <span>Welcome, {{ user.username }}. Start a conversation below.</span>
+                <br><small class="text-muted" style="font-size:0.75em;">🧠 RAG active • 💾 Threads saved</small>
+            </div>
+
+            <!-- RENDER MESSAGES -->
+            <template x-for="(msg, index) in messages" :key="index">
+                <div class="message" :class="msg.role">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <strong x-text="msg.role === 'user' ? 'You' : 'O.R.C.A.'"></strong>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <!-- Speak Button (Sprint 4) -->
+                            <button x-show="msg.role === 'assistant'" 
+                                    @click="speakMessage(msg.content)" 
+                                    class="btn-ghost" style="background:transparent; border:none; color:#4a5a6a; cursor:pointer; font-size:0.65em; opacity:0.6; padding:2px 6px; transition:0.2s;"
+                                    @mouseenter="el => el.style.opacity=1" 
+                                    @mouseleave="el => el.style.opacity=0.6">
+                                🔊
+                            </button>
+                            <!-- Save Button (Sprint 5) -->
+                            <button x-show="msg.role === 'assistant'" 
+                                    @click="openMemoryModal(msg.id, msg.content)" 
+                                    class="btn-ghost" style="background:transparent; border:none; color:#f0a500; cursor:pointer; font-size:0.65em; opacity:0.6; padding:2px 6px; transition:0.2s;"
+                                    @mouseenter="el => el.style.opacity=1" 
+                                    @mouseleave="el => el.style.opacity=0.6">
+                                🧠
+                            </button>
+                        </div>
+                    </div>
+                    <span x-html="msg.content" style="word-break: break-word;"></span>
+                </div>
+            </template>
+
+            <!-- STREAMING INDICATOR (The "stylish waiting") -->
+            <div x-show="isStreaming" class="message assistant">
+                <strong>O.R.C.A.</strong><br>
+                <span x-html="streamingContent"></span>
+                <span x-show="!streamingComplete" style="animation: blink 1s infinite; color: var(--text-accent);">▌</span>
+            </div>
+        </div>
+
+        <!-- CHAT INPUT -->
+        <div class="chat-input-area">
+            <textarea class="chat-input" rows="1" placeholder="Type your command..." 
+                      x-model="inputMessage" @keydown.enter.prevent="sendMessage()"></textarea>
+            <button class="btn-send" @click="sendMessage()" :disabled="isLoading">
+                <span x-show="!isLoading">SEND</span>
+                <span x-show="isLoading" style="animation: pulse 1s infinite;">⏳</span>
+            </button>
+        </div>
     </div>
 
     <!-- ============================================
@@ -227,7 +280,7 @@ MAIN APP CONTAINER
     </div>
 
     <!-- ============================================
-    MODAL COMPONENT
+    UNIFIED CUSTOM MODAL (Delete, Approve, Save Memory)
     ============================================ -->
     <div x-data="modal()">
         <div x-show="showModal" class="modal-overlay" @click.away="closeModal()">
@@ -257,13 +310,28 @@ MAIN APP CONTAINER
                     </div>
                 </template>
 
+                <!-- SAVE MEMORY MODAL (Sprint 5) -->
+                <template x-if="modalType === 'save_memory'">
+                    <div>
+                        <div class="modal-icon">🧠</div>
+                        <h2 class="modal-title warning">Save to Memory</h2>
+                        <p class="modal-message">
+                            Save this knowledge to your permanent knowledge base?
+                            <br><span class="text-muted" style="font-size:0.8em;">It will be auto-ingested and searchable.</span>
+                        </p>
+                        <div style="background: rgba(0,240,255,0.05); padding: 12px; border-radius: 8px; margin: 16px 0; text-align: left; max-height: 100px; overflow-y: auto;">
+                            <p style="font-size:0.85em; color: var(--text-primary);" x-text="modalData?.content?.substring(0, 200) + (modalData?.content?.length > 200 ? '...' : '')"></p>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- BUTTONS -->
                 <div class="modal-actions">
                     <button @click="closeModal()" class="btn btn-ghost btn-sm">Cancel</button>
                     <button @click="confirmModal()"
                             :class="modalType === 'delete' ? 'btn btn-danger btn-sm' : 'btn btn-primary btn-sm'"
                             style="padding:10px 28px; font-size:0.85em;">
-                        <span x-text="modalType === 'delete' ? 'Delete Permanently' : 'Approve & Execute'"></span>
+                        <span x-text="modalType === 'delete' ? 'Delete Permanently' : modalType === 'approve_build' ? 'Approve & Execute' : 'Save Memory'"></span>
                     </button>
                 </div>
             </div>
@@ -307,6 +375,30 @@ MAIN APP CONTAINER
 <!-- STYLES -->
 <style>
     [x-cloak] { display: none !important; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    
+    .message.user { background: rgba(0, 240, 255, 0.06); border-left: 3px solid var(--text-accent); margin-left: auto; }
+    .message.assistant { background: rgba(138, 138, 255, 0.05); border-left: 3px solid #8a8aff; }
+
+    .sidebar div[class*="active"] { background: rgba(0, 240, 255, 0.06) !important; border-color: var(--border-glow) !important; }
+    .sidebar div > div:not(.active):hover { background: rgba(0, 240, 255, 0.03); border-color: rgba(0, 240, 255, 0.1); }
+
+    .delete-btn { background: transparent; color: var(--text-danger); border: none; cursor: pointer; padding: 0 4px; font-size: 0.7em; opacity: 0.6; transition: opacity 0.2s ease; }
+    .delete-btn:hover { opacity: 1; }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-accent); }
 </style>
 
 {% endblock %}

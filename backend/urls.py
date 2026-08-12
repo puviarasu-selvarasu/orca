@@ -64,4 +64,6 @@ urlpatterns = [
     path('api/vision/physical/', sandbox_views.physical_vision, name='physical_vision'),
     path('api/jarvis/thread/', chat_views.get_or_create_jarvis_thread, name='jarvis_thread'),
 
+    path('api/memory/save/', chat_views.save_memory, name='save_memory'),
+
 ]

@@ -1,24 +1,44 @@
 <!-- ============================================
-CHAT MESSAGES (Text-Only Dashboard – Sprint 4)
+CHAT MESSAGES (Sprint 5 – With Welcome & Save)
 ============================================ -->
 <div class="chat-messages" id="chat-messages" x-ref="messagesContainer">
 
-    <!-- Welcome message -->
+    <!-- WELCOME MESSAGE (Shows when NO messages exist) -->
     <div class="message assistant" x-show="messages.length === 0">
         <strong>O.R.C.A.</strong><br>
         <span>Welcome, {{ user.username }}. Start a conversation below.</span>
         <br><small class="text-muted" style="font-size:0.75em;">🧠 RAG active • 💾 Threads saved</small>
     </div>
 
-    <!-- Render messages -->
+    <!-- RENDER MESSAGES -->
     <template x-for="(msg, index) in messages" :key="index">
         <div class="message" :class="msg.role">
-            <strong x-text="msg.role === 'user' ? 'You' : 'O.R.C.A.'"></strong><br>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <strong x-text="msg.role === 'user' ? 'You' : 'O.R.C.A.'"></strong>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <!-- Speak Button -->
+                    <button x-show="msg.role === 'assistant'" 
+                            @click="speakMessage(msg.content)" 
+                            class="btn-ghost" style="background:transparent; border:none; color:#4a5a6a; cursor:pointer; font-size:0.65em; opacity:0.6; padding:2px 6px; transition:0.2s;"
+                            @mouseenter="el => el.style.opacity=1" 
+                            @mouseleave="el => el.style.opacity=0.6">
+                        🔊
+                    </button>
+                    <!-- Save Button (Sprint 5) -->
+                    <button x-show="msg.role === 'assistant'" 
+                            @click="openMemoryModal(msg.id, msg.content)" 
+                            class="btn-ghost" style="background:transparent; border:none; color:#f0a500; cursor:pointer; font-size:0.65em; opacity:0.6; padding:2px 6px; transition:0.2s;"
+                            @mouseenter="el => el.style.opacity=1" 
+                            @mouseleave="el => el.style.opacity=0.6">
+                        🧠 Save
+                    </button>
+                </div>
+            </div>
             <span x-html="msg.content" style="word-break: break-word;"></span>
         </div>
     </template>
 
-    <!-- Streaming indicator -->
+    <!-- STREAMING INDICATOR -->
     <div x-show="isStreaming" class="message assistant">
         <strong>O.R.C.A.</strong><br>
         <span x-html="streamingContent"></span>

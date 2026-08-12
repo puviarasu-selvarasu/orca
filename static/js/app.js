@@ -1,5 +1,5 @@
 // ============================================================
-// O.R.C.A. APP – Clean (Sprint 4 – Dashboard Text-Only)
+// O.R.C.A. APP – Consolidated (Sprint 5: Router + Memory)
 // ============================================================
 
 document.addEventListener('alpine:init', () => {
@@ -64,6 +64,9 @@ document.addEventListener('alpine:init', () => {
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const data = line.slice(6);
+                            
+                            // [BUILD_REDIRECT] REMOVED – No auto-redirect from chat
+
                             if (data === '[DONE]') {
                                 const finalContent = this.streamingContent;
                                 this.messages = [...this.messages, { role: 'assistant', content: finalContent }];
@@ -127,12 +130,20 @@ document.addEventListener('alpine:init', () => {
     });
 
     // ============================================================
-    // 2. CHAT WIDGET COMPONENT (Text-Only – No Voice/Vision)
+    // 2. CHAT WIDGET COMPONENT
     // ============================================================
     Alpine.data('chatWidget', (config = {}) => ({
         workspaceId: config.workspaceId || null,
         workspaceType: config.workspaceType || 'chat',
         title: config.title || 'O.R.C.A.',
+
+        // ============================================
+        // STATE (Voice & Vision - Sprint 4)
+        // ============================================
+        isRecording: false,
+        mediaRecorder: null,
+        audioChunks: [],
+        isUploading: false,
 
         init() {
             const store = Alpine.store('chatEngine');
@@ -165,11 +176,144 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // ============================================
-        // SEND MESSAGE (Exposed from store)
-        // ============================================
         sendMessage() {
             this.store.sendMessage();
+        },
+
+        // ============================================
+        // SPRINT 5: SELECTIVE MEMORY (Unified Modal)
+        // ============================================
+        openMemoryModal(messageId, content) {
+            this.$dispatch('open-modal', {
+                type: 'save_memory',
+                data: { messageId: messageId, content: content },
+                callback: async (result) => {
+                    await this.confirmSaveMemory(result.messageId, result.content);
+                }
+            });
+        },
+
+        async confirmSaveMemory(messageId, content) {
+            try {
+                const response = await fetch('/api/memory/save/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.store.getCsrfToken()
+                    },
+                    body: JSON.stringify({ content: content })
+                });
+                const data = await response.json();
+                if (data.status === 'saved') {
+                    this.$dispatch('show-toast', {
+                        icon: '🧠',
+                        title: 'Memory Saved',
+                        message: 'Fact stored in knowledge base.'
+                    });
+                }
+            } catch (e) {
+                console.error('Save memory error:', e);
+                alert('Error saving memory.');
+            }
+        },
+
+        // ============================================
+        // SPRINT 4: VOICE (STT)
+        // ============================================
+        async toggleRecording() {
+            if (this.isRecording) {
+                this.stopRecording();
+            } else {
+                this.startRecording();
+            }
+        },
+
+        async startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                this.mediaRecorder = new MediaRecorder(stream);
+                this.audioChunks = [];
+                this.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) this.audioChunks.push(event.data);
+                };
+                this.mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                    await this.sendAudioToSTT(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                this.mediaRecorder.start();
+                this.isRecording = true;
+            } catch (e) {
+                alert('Microphone access denied: ' + e.message);
+            }
+        },
+
+        stopRecording() {
+            if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.stop();
+                this.isRecording = false;
+            }
+        },
+
+        async sendAudioToSTT(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.wav');
+            try {
+                const response = await fetch('/api/stt/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.store.getCsrfToken() },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.text) {
+                    this.store.inputMessage = data.text;
+                }
+            } catch (e) {
+                console.error('STT error:', e);
+            }
+        },
+
+        // ============================================
+        // SPRINT 4: VISION (Image Upload)
+        // ============================================
+        async uploadImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+            try {
+                const response = await fetch('/api/vision/upload/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': this.store.getCsrfToken() },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.description) {
+                    this.store.messages = [...this.store.messages, { role: 'assistant', content: `📷 **Image Analysis:**\n\n${data.description}` }];
+                    this.store.scrollToBottom();
+                } else {
+                    alert('Image analysis failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+            event.target.value = '';
+        },
+
+        // ============================================
+        // SPRINT 4: SPEECH (TTS)
+        // ============================================
+        async speakMessage(text) {
+            try {
+                const response = await fetch(`/api/tts/?text=${encodeURIComponent(text)}&language=en`);
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audio.play();
+            } catch (e) {
+                console.error('TTS error:', e);
+            }
         },
 
         // ============================================
@@ -187,7 +331,7 @@ document.addEventListener('alpine:init', () => {
     }));
 
     // ============================================================
-    // 3. BUILDER COMPONENT
+    // 3. BUILDER COMPONENT (UPDATED: Redirect after AI Plan)
     // ============================================================
     Alpine.data('builder', () => ({
         buildPlan: null,
@@ -275,6 +419,12 @@ document.addEventListener('alpine:init', () => {
                     this.buildPlan._is_mock = false;
                     this.isAIPlanning = false;
                     this.aiPlanTaskId = null;
+                    
+                    // ============================================================
+                    // SPRINT 5: REDIRECT TO STUDIO AFTER SUCCESSFUL GENERATION
+                    // ============================================================
+                    window.location.href = '/studio/?plan_generated=true';
+                    
                 } else if (data.status === 'failed') {
                     alert('AI plan generation failed: ' + data.error);
                     this.isAIPlanning = false;
