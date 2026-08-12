@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}O.R.C.A. – JARVIS Voice Mode{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/jarvis.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="jarvis-container" x-data="jarvisComponent()" x-init="init()">
+    <div class="jarvis-logo"><span>O</span>.<span>R</span>.<span>C</span>.<span>A</span></div>
+
+    <!-- Mic Button -->
+    <div class="jarvis-mic" :class="{'recording': isRecording}" @click="toggleRecording()">
+        <span x-show="!isRecording">🎤</span>
+        <span x-show="isRecording" style="animation: pulse 1s infinite;">⏺️</span>
+    </div>
+
+    <!-- Status -->
+    <div class="jarvis-status" :class="{
+        'active': isProcessing || isSpeaking,
+        'recording-status': isRecording
+    }">
+        <span x-show="!isRecording && !isProcessing && !isSpeaking">Tap mic to speak</span>
+        <span x-show="isRecording">🎙️ Listening...</span>
+        <span x-show="isProcessing && !isRecording">🧠 Thinking...</span>
+        <span x-show="isSpeaking && !isRecording && !isProcessing">🔊 Speaking...</span>
+    </div>
+
+    <!-- Controls -->
+    <div class="jarvis-controls">
+        <button @click="toggleLanguage()" :class="{'active-lang': language === 'ta'}">
+            <span x-text="language === 'en' ? '🇬🇧 English' : '🇮🇳 தமிழ்'"></span>
+        </button>
+        <button @click="lookAround()" :disabled="isProcessing">
+            🌍 Look Around
+        </button>
+    </div>
+</div>
+
+<!-- Include the JARVIS component logic -->
+<script src="{% static 'js/jarvis.js' %}"></script>
+
+{% endblock %}

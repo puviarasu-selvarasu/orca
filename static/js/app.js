@@ -1,5 +1,5 @@
 // ============================================================
-// O.R.C.A. APP – Consolidated (Sprint 0, Step 2)
+// O.R.C.A. APP – Clean (Sprint 4 – Dashboard Text-Only)
 // ============================================================
 
 document.addEventListener('alpine:init', () => {
@@ -100,17 +100,14 @@ document.addEventListener('alpine:init', () => {
         scrollToBottom() {
             const el = document.querySelector('#chat-messages');
             if (el) {
-                // Use requestAnimationFrame to ensure DOM is fully rendered
                 requestAnimationFrame(() => {
                     el.scrollTop = el.scrollHeight;
                 });
-                // Also set it directly as a fallback
                 setTimeout(() => {
                     el.scrollTop = el.scrollHeight;
                 }, 50);
             }
         },
-
 
         getCsrfToken() {
             const name = 'csrftoken';
@@ -130,7 +127,7 @@ document.addEventListener('alpine:init', () => {
     });
 
     // ============================================================
-    // 2. CHAT WIDGET COMPONENT
+    // 2. CHAT WIDGET COMPONENT (Text-Only – No Voice/Vision)
     // ============================================================
     Alpine.data('chatWidget', (config = {}) => ({
         workspaceId: config.workspaceId || null,
@@ -169,14 +166,14 @@ document.addEventListener('alpine:init', () => {
         },
 
         // ============================================
-        // NEW: Expose sendMessage from the store
+        // SEND MESSAGE (Exposed from store)
         // ============================================
         sendMessage() {
             this.store.sendMessage();
         },
 
         // ============================================
-        // GETTERS (Computed properties)
+        // GETTERS
         // ============================================
         get store() { return Alpine.store('chatEngine'); },
         get messages() { return this.store.messages; },
@@ -188,7 +185,6 @@ document.addEventListener('alpine:init', () => {
         get streamingComplete() { return this.store.streamingComplete; },
         get hasMessages() { return this.store.hasMessages; }
     }));
-
 
     // ============================================================
     // 3. BUILDER COMPONENT
@@ -372,7 +368,6 @@ document.addEventListener('alpine:init', () => {
         modalCallback: null,
 
         init() {
-            // Listen for open-modal events on window (works across all components)
             window.addEventListener('open-modal', (e) => {
                 this.openModal(e.detail.type, e.detail.data, e.detail.callback);
             });

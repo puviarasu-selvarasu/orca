@@ -7,49 +7,105 @@
     {% load static %}
     <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'css/orca.css' %}">
+    <!-- Sci-Fi Font -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
 
-    <!-- HEADER -->
-    <header class="header">
-        <div class="logo">
-            <span>O</span>.<span>R</span>.<span>C</span>.<span>A</span>
-            <span class="pulse-dot"></span>
-        </div>
-        <div class="system-metrics">
-            <div class="metric-item">
-                <span>CPU</span>
-                <div class="metric-bar">
-                    <div class="metric-bar-fill" id="cpu-fill" style="width:0%"></div>
-                </div>
-                <span id="cpu-text">0%</span>
-            </div>
-            <div class="metric-item">
-                <span>RAM</span>
-                <div class="metric-bar">
-                    <div class="metric-bar-fill" id="ram-fill" style="width:0%"></div>
-                </div>
-                <span id="ram-text">0%</span>
-            </div>
-            {% if user.is_authenticated %}
-            <a href="{% url 'logout' %}" class="logout-btn">EXIT</a>
-            {% endif %}
-        </div>
-    </header>
+    <!-- ============================================================
+    FUTURISTIC COMMAND CENTER NAVIGATION BAR (Sprint 4)
+    ============================================================ -->
+    {% if user.is_authenticated %}
+<!-- ============================================================
+FUTURISTIC COMMAND CENTER NAVIGATION BAR (Sprint 4 - Clean)
+============================================================ -->
+{% if user.is_authenticated %}
+<nav class="command-nav">
+    <!-- LEFT: Logo + Version -->
+    <div style="display: flex; align-items: center; gap: 14px; flex-shrink: 0;">
+        <span style="
+            font-size: 1.3em;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: var(--text-accent);
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        ">
+            <span style="color: #ffffff;">O</span>.<span style="color: #ffffff;">R</span>.<span style="color: #ffffff;">C</span>.<span style="color: #ffffff;">A</span>
+            <span class="pulse-dot" style="
+                display: inline-block;
+                width: 6px;
+                height: 6px;
+                background: #00ff88;
+                border-radius: 50%;
+                box-shadow: 0 0 12px #00ff88;
+                animation: heartbeat 1.5s infinite;
+                margin-left: 8px;
+                vertical-align: middle;
+            "></span>
+        </span>
+        <span style="color: #2a3a4a; font-size: 0.55em; letter-spacing: 2px; border-left: 1px solid #1a2a3a; padding-left: 12px;">
+            v0.3
+        </span>
+    </div>
 
-    <!-- MAIN CONTENT -->
+    <!-- CENTER: Clean Navigation Links -->
+    <div style="display: flex; gap: 28px; align-items: center; flex-wrap: wrap;">
+        <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+            📡 Dashboard
+        </a>
+        <a href="/jarvis/" class="nav-link {% if request.path == '/jarvis/' %}active{% endif %}">
+            🎤 JARVIS
+        </a>
+        <a href="/studio/" class="nav-link disabled" title="Coming soon in Sprint 7">
+            🛠️ Studio
+        </a>
+    </div>
+
+    <!-- RIGHT: System Metrics + EXIT -->
+    <div style="display: flex; align-items: center; gap: 24px; flex-shrink: 0;">
+        <!-- CPU -->
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.6em; color: #4a5a6a; letter-spacing: 1px;">
+            <span>CPU</span>
+            <div style="width: 50px; height: 3px; background: #1a2a3a; border-radius: 2px; overflow: hidden;">
+                <div id="cpu-fill" style="width:0%; height:100%; background: var(--text-accent); border-radius: 2px; transition: width 0.5s ease;"></div>
+            </div>
+            <span id="cpu-text" style="color: #b0c7d9; min-width: 32px; text-align: right;">0%</span>
+        </div>
+        <!-- RAM -->
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.6em; color: #4a5a6a; letter-spacing: 1px;">
+            <span>RAM</span>
+            <div style="width: 50px; height: 3px; background: #1a2a3a; border-radius: 2px; overflow: hidden;">
+                <div id="ram-fill" style="width:0%; height:100%; background: var(--text-accent); border-radius: 2px; transition: width 0.5s ease;"></div>
+            </div>
+            <span id="ram-text" style="color: #b0c7d9; min-width: 32px; text-align: right;">0%</span>
+        </div>
+        <!-- EXIT -->
+        <a href="{% url 'logout' %}" class="nav-exit">
+            EXIT
+        </a>
+    </div>
+</nav>
+{% endif %}
+    {% endif %}
+
+    <!-- ============================================================
+    MAIN CONTENT
+    ============================================================ -->
     <main class="main-container">
         {% block content %}{% endblock %}
     </main>
 
-    <!-- FOOTER -->
+    <!-- ============================================================
+    FOOTER
+    ============================================================ -->
     <footer class="footer">
         <span>O.R.C.A. v0.3 | On-device Resource-Constrained Assistant</span>
     </footer>
 
-    <!-- SCRIPTS -->
+    <!-- ============================================================
+    SCRIPTS
+    ============================================================ -->
     <script src="{% static 'js/app.js' %}"></script>
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
     {% block extra_scripts %}{% endblock %}

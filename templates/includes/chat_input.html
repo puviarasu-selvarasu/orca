@@ -1,16 +1,9 @@
 <!-- ============================================
-CHAT INPUT (Reusable Component – No Inline Styles)
+CHAT INPUT (Text-Only Dashboard – Sprint 4)
 ============================================ -->
 <div class="chat-input-area">
-
-    <!-- Voice Button (Placeholder for Sprint 4) -->
-    <button x-show="false" class="btn btn-danger btn-sm" style="padding: 6px 12px;">
-        🎤
-    </button>
-
-    <textarea class="chat-input" rows="1" placeholder="Type your command..."
+    <textarea class="chat-input" rows="1" placeholder="Type your command..." 
               x-model="inputMessage" @keydown.enter.prevent="sendMessage()"></textarea>
-
     <button class="btn-send" @click="sendMessage()" :disabled="isLoading">
         <span x-show="!isLoading">SEND</span>
         <span x-show="isLoading" style="animation: pulse 1s infinite;">⏳</span>

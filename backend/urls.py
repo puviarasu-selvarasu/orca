@@ -16,9 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path , include
+from django.views.generic import TemplateView
 from chat import views as chat_views
 from sandbox import builder as builder_views
 from oracle import views as oracle_views
+from voice import views as voice_views
+from sandbox import views as sandbox_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -51,5 +54,14 @@ urlpatterns = [
     path('api/oracle/prediction/', oracle_views.get_prediction, name='oracle_prediction'),
 
     path('api/builder/upload-requirements/', builder_views.upload_requirements, name='upload_requirements'),
+
+    # ... existing ...
+    path('api/stt/', voice_views.speech_to_text, name='speech_to_text'),
+    path('api/tts/', voice_views.text_to_speech, name='text_to_speech'),
+    path('api/vision/upload/', sandbox_views.upload_image, name='upload_image'),
+
+    path('jarvis/', TemplateView.as_view(template_name='jarvis/jarvis.html'), name='jarvis'),
+    path('api/vision/physical/', sandbox_views.physical_vision, name='physical_vision'),
+    path('api/jarvis/thread/', chat_views.get_or_create_jarvis_thread, name='jarvis_thread'),
 
 ]

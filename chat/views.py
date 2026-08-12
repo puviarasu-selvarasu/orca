@@ -18,7 +18,7 @@ from .router import route_query
 @login_required
 def dashboard(request):
     """Main O.R.C.A. dashboard with persistent chat history."""
-    threads = ChatThread.objects.filter(user=request.user)
+    threads = ChatThread.objects.filter(user=request.user).exclude(title="JARVIS Voice")
     
     current_thread = threads.first()
     if not current_thread:
@@ -68,26 +68,12 @@ def chat_stream(request, thread_id):
         return JsonResponse({'error': 'Message is empty'}, status=400)
 
     # ============================================================
-    # SMART ROUTER (Check if we can answer instantly)
+    # DETECT LANGUAGE
     # ============================================================
-    from .router import route_query
-    routed = route_query(user_message)
-    if routed['handled']:
-        ChatMessage.objects.create(thread=thread, role='user', content=user_message)
-        ChatMessage.objects.create(thread=thread, role='assistant', content=routed['response'])
-
-        def generate_router():
-            yield f"data: {routed['response']}\n\n"
-            yield "data: [DONE]\n\n"
-
-        response = StreamingHttpResponse(generate_router(), content_type='text/event-stream')
-        response['Cache-Control'] = 'no-cache, no-transform'
-        response['X-Accel-Buffering'] = 'no'
-        return response  # <-- CRITICAL: This must be here to stop execution!
-
-    # ============================================================
-    # NORMAL LLM FLOW (Only runs if router doesn't handle it)
-    # ============================================================
+    detected_lang = detect_language(user_message)
+    language_instruction = ""
+    if detected_lang == 'ta':
+        language_instruction = "IMPORTANT: The user wrote in Tamil. You MUST respond in Tamil. Do not respond in English."
 
     # 1. SAVE USER MESSAGE
     ChatMessage.objects.create(thread=thread, role='user', content=user_message)
@@ -105,7 +91,7 @@ def chat_stream(request, thread_id):
     # 4. BUILD THE PROMPT
     system_prompt = f"""You are O.R.C.A., a precise and helpful assistant.
 
-IMPORTANT: You do NOT have access to the current time or date. If the user asks for the time or date, tell them to ask "time" or "date" directly.
+{language_instruction}
 
 Context from user's knowledge base:
 {context}
@@ -113,11 +99,11 @@ Context from user's knowledge base:
 User question: {user_message}
 
 Your response:"""
-    
+
     # 5. STREAM RESPONSE
     full_response = ""
 
-    def generate_llm():
+    def generate():
         nonlocal full_response
         for token in generate_stream(system_prompt, max_tokens=512):
             full_response += token
@@ -127,7 +113,7 @@ Your response:"""
         thread.save()
         yield "data: [DONE]\n\n"
 
-    response = StreamingHttpResponse(generate_llm(), content_type='text/event-stream')
+    response = StreamingHttpResponse(generate(), content_type='text/event-stream')
     response['Cache-Control'] = 'no-cache, no-transform'
     response['X-Accel-Buffering'] = 'no'
     return response
@@ -137,7 +123,7 @@ Your response:"""
 # ============================================================
 @login_required
 def list_threads(request):
-    threads = ChatThread.objects.filter(user=request.user)
+    threads = ChatThread.objects.filter(user=request.user).exclude(title="JARVIS Voice")
     data = [{'id': t.id, 'title': t.title, 'updated_at': t.updated_at.isoformat()} for t in threads]
     return JsonResponse({'threads': data})
 
@@ -172,3 +158,25 @@ def get_messages(request, thread_id):
     messages = ChatMessage.objects.filter(thread=thread).order_by('timestamp')
     data = [{'role': m.role, 'content': m.content} for m in messages]
     return JsonResponse({'messages': data})
+
+@login_required
+def get_or_create_jarvis_thread(request):
+    thread, created = ChatThread.objects.get_or_create(
+        user=request.user,
+        title="JARVIS Voice",
+        defaults={"title": "JARVIS Voice"}
+    )
+    return JsonResponse({'id': thread.id, 'title': thread.title, 'created': created})
+
+import re
+
+def detect_language(text):
+    """
+    Detect if the text is Tamil (contains Tamil Unicode characters).
+    Returns 'ta' for Tamil, 'en' for English.
+    """
+    # Tamil Unicode range: 0x0B80 to 0x0BFF
+    tamil_pattern = re.compile(r'[\u0B80-\u0BFF]')
+    if tamil_pattern.search(text):
+        return 'ta'
+    return 'en'

@@ -1,0 +1,108 @@
+/* ============================================================
+   JARVIS MODE – Full Screen Voice Interface (Sprint 4)
+   ============================================================ */
+
+.jarvis-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: calc(100vh - 56px); /* Subtract nav bar height */
+    width: 100%;
+    gap: 40px;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+.jarvis-logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.2em;
+    font-weight: 700;
+    letter-spacing: 6px;
+    color: #00f0ff;
+    text-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+    opacity: 0.6;
+}
+.jarvis-logo span { color: #ffffff; }
+
+/* Central Mic Button */
+.jarvis-mic {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: rgba(0, 240, 255, 0.08);
+    border: 2px solid rgba(0, 240, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4.5em;
+    color: #00f0ff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 60px rgba(0, 240, 255, 0.1);
+    user-select: none;
+}
+.jarvis-mic:hover {
+    transform: scale(1.05);
+    border-color: #00f0ff;
+    box-shadow: 0 0 80px rgba(0, 240, 255, 0.2);
+}
+.jarvis-mic.recording {
+    background: rgba(255, 107, 107, 0.15);
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+    box-shadow: 0 0 80px rgba(255, 107, 107, 0.2);
+    animation: pulseGlow 1.5s infinite;
+}
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 60px rgba(255, 107, 107, 0.2); }
+    50% { box-shadow: 0 0 120px rgba(255, 107, 107, 0.4); }
+}
+
+.jarvis-status {
+    color: #4a5a6a;
+    font-size: 0.9em;
+    letter-spacing: 3px;
+    min-height: 30px;
+    text-transform: uppercase;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+}
+.jarvis-status.active { color: #00f0ff; }
+.jarvis-status.recording-status { color: #ff6b6b; }
+
+.jarvis-controls {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.jarvis-controls button {
+    background: rgba(13, 18, 30, 0.6);
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    color: #8a9aaa;
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    letter-spacing: 1px;
+}
+.jarvis-controls button:hover {
+    border-color: #00f0ff;
+    color: #00f0ff;
+    background: rgba(0, 240, 255, 0.05);
+}
+.jarvis-controls button.active-lang {
+    border-color: #00f0ff;
+    color: #00f0ff;
+    background: rgba(0, 240, 255, 0.1);
+}
+.jarvis-controls button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

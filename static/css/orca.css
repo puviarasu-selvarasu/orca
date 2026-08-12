@@ -634,3 +634,70 @@ body {
     color: #2a3a4a;
     letter-spacing: 2px;
 }
+
+.command-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 24px;
+    background: rgba(10, 14, 23, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-glow);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    font-family: 'Orbitron', sans-serif;
+    min-height: 56px;
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.03);
+}
+
+/* ============================================================
+   NAVIGATION LINKS (Sprint 4 Cleanup)
+   ============================================================ */
+.nav-link {
+    text-decoration: none;
+    transition: all 0.3s ease;
+    padding-bottom: 4px;
+    border-bottom: 2px solid transparent;
+    font-size: 0.7em;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #5a6a7a;
+    font-family: 'Orbitron', sans-serif;
+    cursor: pointer;
+}
+
+.nav-link:hover {
+    color: var(--text-accent);
+}
+
+.nav-link.active {
+    color: var(--text-accent);
+    border-bottom-color: var(--text-accent);
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+}
+
+.nav-link.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.nav-exit {
+    color: var(--text-danger);
+    text-decoration: none;
+    font-size: 0.6em;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.5;
+    transition: 0.3s;
+    border: 1px solid transparent;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.nav-exit:hover {
+    opacity: 1;
+    border-color: var(--text-danger);
+}

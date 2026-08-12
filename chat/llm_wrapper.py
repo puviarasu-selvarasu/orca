@@ -4,18 +4,19 @@ from django.conf import settings
 from llama_cpp import Llama
 
 _llm_instance = None
+_draft_instance = None
 
 def load_llm():
-    """Load the GGUF model into memory (called once at startup)."""
-    global _llm_instance
+    """Load the main Qwen model and the draft TinyLlama model."""
+    global _llm_instance, _draft_instance
+
     if _llm_instance is None:
         model_path = settings.LLM_MODEL_PATH
         if not model_path.exists():
             print(f"❌ Model not found at {model_path}")
-            print("   Please download the GGUF model to this location.")
             return None
-        
-        print(f"🧠 Loading LLM from {model_path}...")
+
+        print(f"🧠 Loading main LLM from {model_path}...")
         _llm_instance = Llama(
             model_path=str(model_path),
             n_ctx=settings.LLM_CONFIG['n_ctx'],
@@ -26,12 +27,37 @@ def load_llm():
             use_mlock=False,
             verbose=False
         )
-        print("✅ LLM loaded successfully.")
+        print("✅ Main LLM loaded.")
+
+    # Load draft model (only for future use)
+    if _draft_instance is None and hasattr(settings, 'DRAFT_MODEL_PATH'):
+        draft_path = settings.DRAFT_MODEL_PATH
+        if draft_path.exists():
+            print(f"🧠 Loading draft model from {draft_path}...")
+            _draft_instance = Llama(
+                model_path=str(draft_path),
+                n_ctx=512,
+                n_batch=128,
+                n_threads=1,
+                n_gpu_layers=0,
+                use_mmap=True,
+                use_mlock=False,
+                verbose=False
+            )
+            print("✅ Draft model loaded.")
+        else:
+            print(f"⚠️ Draft model not found at {draft_path}. Skipping.")
+    else:
+        if hasattr(settings, 'DRAFT_MODEL_PATH') and not settings.DRAFT_MODEL_PATH.exists():
+            print("⚠️ DRAFT_MODEL_PATH not set or file missing.")
+
     return _llm_instance
 
 def get_llm():
-    """Return the loaded LLM instance (or None if not loaded)."""
     return _llm_instance
+
+def get_draft():
+    return _draft_instance
 
 def generate_stream(prompt, max_tokens=512):
     llm = get_llm()
@@ -39,10 +65,8 @@ def generate_stream(prompt, max_tokens=512):
         yield "⚠️ LLM not loaded."
         return
 
-    # ============================================================
-    # QWEN 2.5 CHATML FORMAT (with space after assistant tag)
-    # ============================================================
-    formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n "
+    # Draft is loaded but NOT passed to create_completion to avoid errors
+    formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
     try:
         response = llm.create_completion(
@@ -59,9 +83,8 @@ def generate_stream(prompt, max_tokens=512):
             if 'choices' in chunk and len(chunk['choices']) > 0:
                 delta = chunk['choices'][0].get('text', '')
                 if delta:
-                    # Remove special tokens but KEEP spaces
                     delta = delta.replace('<|im_end|>', '').replace('<|im_start|>', '')
-                    # DO NOT strip spaces – preserve them
-                    yield delta
+                    if delta:
+                        yield delta
     except Exception as e:
         yield f"⚠️ LLM Error: {str(e)}"
