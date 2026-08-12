@@ -44,3 +44,27 @@ class CoreConfig(AppConfig):
                 print("⚠️ APScheduler not installed. Prompt optimization disabled.")
             except Exception as e:
                 print(f"⚠️ Failed to start prompt optimizer: {e}")
+
+            # ============================================================
+            # 4. SPRINT 6: STARTUP CATCH-UP (Runs if 3 AM was missed)
+            # ============================================================
+            try:
+                from self_improve.models import PromptVariant
+                from datetime import date
+                from self_improve.prompt_optimizer import optimize_prompts
+                
+                # Check if any variant has been tested today
+                last_tested = PromptVariant.objects.first()
+                if last_tested:
+                    last_date = last_tested.created_at.date()
+                    today = date.today()
+                    if last_date < today:
+                        print("🔄 Catching up: Running missed prompt optimization...")
+                        optimize_prompts()
+                    else:
+                        print("✅ Prompt optimization already ran today.")
+                else:
+                    print("🔄 First run: Running prompt optimization...")
+                    optimize_prompts()
+            except Exception as e:
+                print(f"⚠️ Startup optimization check failed: {e}")
