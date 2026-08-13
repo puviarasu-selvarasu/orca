@@ -122,7 +122,7 @@ def delete_message(request, project_id, message_id):
     return JsonResponse({'status': 'deleted'})
 
 # ============================================================
-# API: CREATE PROJECT FROM PLAN
+# API: CREATE PROJECT FROM PLAN (Fixed)
 # ============================================================
 @login_required
 @csrf_exempt
@@ -131,28 +131,31 @@ def create_project_from_plan(request):
     """Create a Project from a generated plan and write files to disk."""
     try:
         data = json.loads(request.body)
-        # Handle both nested 'plan' wrapper and flat payloads from the frontend
+        # Check if plan is wrapped under a 'plan' key or sent directly
         plan = data.get('plan', data)
     except Exception as e:
         return JsonResponse({'error': f'Invalid JSON: {str(e)}'}, status=400)
     
-    project_name = plan.get('project_name', 'Unnamed Project')
+    project_name = plan.get('project_name', 'Unnamed_Project')
     
-    # Extract files list or dictionary safely
+    # Robustly parse files whether they come as a list, dict, or stringified JSON
     raw_files = plan.get('files', [])
     files_dict = {}
     
     if isinstance(raw_files, list):
         for f in raw_files:
-            if isinstance(f, dict) and f.get('path') and f.get('content'):
-                files_dict[f.get('path')] = f.get('content')
+            if isinstance(f, dict):
+                path = f.get('path')
+                content = f.get('content', '')
+                if path:
+                    files_dict[path] = content
     elif isinstance(raw_files, dict):
         files_dict = raw_files
 
     commands = plan.get('commands', [])
     
     if not files_dict:
-        return JsonResponse({'error': 'No files in plan'}, status=400)
+        return JsonResponse({'error': 'No files in plan. Received files data was empty or invalid.'}, status=400)
     
     project = Project.objects.create(
         user=request.user, 

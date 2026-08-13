@@ -488,23 +488,42 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        async pollAIPlan() {
+    async pollAIPlan() {
             if (!this.aiPlanTaskId) return;
             try {
                 const response = await fetch(`/api/builder/ai-plan/status/${this.aiPlanTaskId}/`);
                 const data = await response.json();
                 if (data.status === 'completed') {
                     // ============================================================
-                    // SAVE THE PLAN AS A PROJECT IN THE DATABASE
+                    // NORMALIZE FILES & SAVE THE PLAN AS A PROJECT
                     // ============================================================
+                    let rawFiles = data.result.files || [];
+                    let formattedFiles = {};
+
+                    if (Array.isArray(rawFiles)) {
+                        rawFiles.forEach(file => {
+                            if (file.path) {
+                                formattedFiles[file.path] = file.content || '';
+                            }
+                        });
+                    } else if (typeof rawFiles === 'object' && rawFiles !== null) {
+                        formattedFiles = rawFiles;
+                    }
+
+                    const payloadPlan = {
+                        ...data.result,
+                        files: formattedFiles
+                    };
+
                     const saveResponse = await fetch('/studio/api/projects/create/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRFToken': this.store.getCsrfToken()
                         },
-                        body: JSON.stringify({ plan: data.result })
+                        body: JSON.stringify({ plan: payloadPlan })
                     });
+                    
                     const saveData = await saveResponse.json();
                     if (saveData.status === 'success') {
                         const projectId = saveData.project_id;
@@ -540,7 +559,6 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => this.pollAIPlan(), 2000);
             }
         },
-
         // ============================================
         // EXECUTE BUILD PLAN (Approve & Execute)
         // ============================================
