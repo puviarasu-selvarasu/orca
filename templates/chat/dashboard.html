@@ -11,7 +11,7 @@
 {{ chat_history|json_script:"chat-history" }}
 
 <!-- ============================================
-MAIN APP CONTAINER (Using dashboardComponent)
+MAIN APP CONTAINER
 ============================================ -->
 <div class="app-container" x-data="dashboardComponent()" x-init="init()">
 
@@ -41,7 +41,7 @@ MAIN APP CONTAINER (Using dashboardComponent)
     </div>
 
     <!-- ============================================
-    COLUMN 2: CHAT PANEL (Reuses chatWidget)
+    COLUMN 2: CHAT PANEL
     ============================================ -->
     <div class="chat-panel" x-data="chatWidget({ workspaceType: 'chat', workspaceId: currentThreadId })">
         
@@ -63,17 +63,13 @@ MAIN APP CONTAINER (Using dashboardComponent)
                             <!-- Speak Button -->
                             <button x-show="msg.role === 'assistant'" 
                                     @click="speakMessage(msg.content)" 
-                                    class="btn-ghost" style="background:transparent; border:none; color:#4a5a6a; cursor:pointer; font-size:0.65em; opacity:0.6; padding:2px 6px; transition:0.2s;"
-                                    @mouseenter="el => el.style.opacity=1" 
-                                    @mouseleave="el => el.style.opacity=0.6">
+                                    class="btn-ghost btn-icon">
                                 🔊
                             </button>
                             <!-- Save Button -->
                             <button x-show="msg.role === 'assistant'" 
                                     @click="openMemoryModal(msg.id, msg.content)" 
-                                    class="btn-ghost" style="background:transparent; border:none; color:#f0a500; cursor:pointer; font-size:0.65em; opacity:0.6; padding:2px 6px; transition:0.2s;"
-                                    @mouseenter="el => el.style.opacity=1" 
-                                    @mouseleave="el => el.style.opacity=0.6">
+                                    class="btn-ghost btn-icon save-btn">
                                 🧠
                             </button>
                         </div>
@@ -102,7 +98,7 @@ MAIN APP CONTAINER (Using dashboardComponent)
     </div>
 
     <!-- ============================================
-    COLUMN 3: BUILDER CONSOLE
+    COLUMN 3: BUILDER CONSOLE (WITH OVERLAY INSIDE)
     ============================================ -->
     <div class="builder-panel" x-data="builder()">
 
@@ -118,11 +114,10 @@ MAIN APP CONTAINER (Using dashboardComponent)
             </label>
         </div>
 
-        <!-- Action Buttons -->
+        <!-- Action Buttons (Instant Removed) -->
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; flex-shrink:0;">
-            <button @click="generateBuildPlan()" class="btn btn-primary btn-sm">⚡ Instant</button>
             <button @click="generateAIPlan()" :disabled="isAIPlanning" class="btn btn-sm" style="background:#8a8aff; color:var(--bg-primary);">
-                <span x-show="!isAIPlanning">✨ AI Plan</span>
+                <span x-show="!isAIPlanning">✨ Generate Plan</span>
                 <span x-show="isAIPlanning">⏳ Generating...</span>
             </button>
         </div>
@@ -172,16 +167,50 @@ MAIN APP CONTAINER (Using dashboardComponent)
                 <p style="margin:4px 0 0 0; font-size:0.65em;">Click "Generate Plan" to start</p>
             </div>
         </div>
+
+        <!-- ============================================
+        HOLOGRAPHIC BUILD OVERLAY (INSIDE BUILDER COMPONENT)
+        ============================================ -->
+        <div x-show="isBuilding" 
+             x-cloak
+             style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7, 11, 19, 0.92); backdrop-filter: blur(20px); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; animation: fadeIn 0.5s ease;">
+            
+            <!-- Logo -->
+            <div style="font-family: 'Orbitron', sans-serif; font-size: 2.5em; letter-spacing: 8px; color: rgba(0, 240, 255, 0.4); margin-bottom: 30px;">
+                <span style="color: #ffffff;">O</span>.<span style="color: #ffffff;">R</span>.<span style="color: #ffffff;">C</span>.<span style="color: #ffffff;">A</span>
+            </div>
+
+            <!-- Neon Progress Bar -->
+            <div style="width: 60%; max-width: 500px; background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 30px; padding: 3px; box-shadow: 0 0 40px rgba(0, 240, 255, 0.05);">
+                <div style="height: 8px; background: linear-gradient(90deg, #00f0ff, #8a8aff); border-radius: 30px; width: 0%; transition: width 0.3s ease; box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);"
+                     x-bind:style="'width: ' + buildProgress + '%'"></div>
+            </div>
+
+            <!-- Percentage -->
+            <div style="font-family: 'Orbitron', sans-serif; font-size: 2.2em; color: #00f0ff; margin-top: 20px; text-shadow: 0 0 40px rgba(0, 240, 255, 0.2);"
+                 x-text="buildProgress + '%'">
+                0%
+            </div>
+
+            <!-- Status Message -->
+            <div style="font-family: 'Courier New', monospace; font-size: 0.9em; color: #4a5a6a; letter-spacing: 3px; margin-top: 12px; text-transform: uppercase;"
+                 x-text="buildStatusText">
+                INITIALIZING BUILD PIPELINE...
+            </div>
+
+            <!-- Subtle Grid Background -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background-image: linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px); background-size: 50px 50px; z-index: -1;"></div>
+        </div>
+
     </div>
 
     <!-- ============================================
-    UNIFIED CUSTOM MODAL (Delete, Approve, Save Memory)
+    UNIFIED CUSTOM MODAL
     ============================================ -->
     <div x-data="modal()">
         <div x-show="showModal" class="modal-overlay" @click.away="closeModal()">
             <div class="modal-box">
 
-                <!-- DELETE MODAL -->
                 <template x-if="modalType === 'delete'">
                     <div>
                         <div class="modal-icon">⚠️</div>
@@ -193,7 +222,6 @@ MAIN APP CONTAINER (Using dashboardComponent)
                     </div>
                 </template>
 
-                <!-- APPROVE BUILD MODAL -->
                 <template x-if="modalType === 'approve_build'">
                     <div>
                         <div class="modal-icon">🚀</div>
@@ -205,7 +233,6 @@ MAIN APP CONTAINER (Using dashboardComponent)
                     </div>
                 </template>
 
-                <!-- SAVE MEMORY MODAL -->
                 <template x-if="modalType === 'save_memory'">
                     <div>
                         <div class="modal-icon">🧠</div>
@@ -220,7 +247,6 @@ MAIN APP CONTAINER (Using dashboardComponent)
                     </div>
                 </template>
 
-                <!-- BUTTONS -->
                 <div class="modal-actions">
                     <button @click="closeModal()" class="btn btn-ghost btn-sm">Cancel</button>
                     <button @click="confirmModal()"
@@ -271,15 +297,11 @@ MAIN APP CONTAINER (Using dashboardComponent)
 <style>
     [x-cloak] { display: none !important; }
     @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
-    }
-    @keyframes fadeSlideIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
     @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     
     .message.user { background: rgba(0, 240, 255, 0.06); border-left: 3px solid var(--text-accent); margin-left: auto; }
     .message.assistant { background: rgba(138, 138, 255, 0.05); border-left: 3px solid #8a8aff; }
@@ -289,6 +311,24 @@ MAIN APP CONTAINER (Using dashboardComponent)
 
     .delete-btn { background: transparent; color: var(--text-danger); border: none; cursor: pointer; padding: 0 4px; font-size: 0.7em; opacity: 0.6; transition: opacity 0.2s ease; }
     .delete-btn:hover { opacity: 1; }
+
+    /* Icon Buttons – use CSS hover instead of Alpine events */
+    .btn-ghost.btn-icon {
+        background: transparent;
+        border: none;
+        color: #4a5a6a;
+        cursor: pointer;
+        font-size: 0.65em;
+        padding: 2px 6px;
+        opacity: 0.6;
+        transition: opacity 0.2s ease;
+    }
+    .btn-ghost.btn-icon:hover {
+        opacity: 1;
+    }
+    .btn-ghost.btn-icon.save-btn {
+        color: #f0a500;
+    }
 
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }

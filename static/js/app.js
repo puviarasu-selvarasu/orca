@@ -1,5 +1,5 @@
 // ============================================================
-// O.R.C.A. APP – Consolidated (Sprint 5: Router + Memory)
+// O.R.C.A. APP – Consolidated (Sprint 7 – Complete)
 // ============================================================
 
 document.addEventListener('alpine:init', () => {
@@ -64,9 +64,6 @@ document.addEventListener('alpine:init', () => {
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const data = line.slice(6);
-                            
-                            // [BUILD_REDIRECT] REMOVED – No auto-redirect from chat
-
                             if (data === '[DONE]') {
                                 const finalContent = this.streamingContent;
                                 this.messages = [...this.messages, { role: 'assistant', content: finalContent }];
@@ -137,9 +134,6 @@ document.addEventListener('alpine:init', () => {
         workspaceType: config.workspaceType || 'chat',
         title: config.title || 'O.R.C.A.',
 
-        // ============================================
-        // STATE (Voice & Vision - Sprint 4)
-        // ============================================
         isRecording: false,
         mediaRecorder: null,
         audioChunks: [],
@@ -180,9 +174,6 @@ document.addEventListener('alpine:init', () => {
             this.store.sendMessage();
         },
 
-        // ============================================
-        // SPRINT 5: SELECTIVE MEMORY (Unified Modal)
-        // ============================================
         openMemoryModal(messageId, content) {
             this.$dispatch('open-modal', {
                 type: 'save_memory',
@@ -217,9 +208,6 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // ============================================
-        // SPRINT 4: VOICE (STT)
-        // ============================================
         async toggleRecording() {
             if (this.isRecording) {
                 this.stopRecording();
@@ -273,9 +261,6 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // ============================================
-        // SPRINT 4: VISION (Image Upload)
-        // ============================================
         async uploadImage(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -301,9 +286,6 @@ document.addEventListener('alpine:init', () => {
             event.target.value = '';
         },
 
-        // ============================================
-        // SPRINT 4: SPEECH (TTS)
-        // ============================================
         async speakMessage(text) {
             try {
                 const response = await fetch(`/api/tts/?text=${encodeURIComponent(text)}&language=en`);
@@ -316,9 +298,6 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // ============================================
-        // GETTERS
-        // ============================================
         get store() { return Alpine.store('chatEngine'); },
         get messages() { return this.store.messages; },
         get inputMessage() { return this.store.inputMessage; },
@@ -330,26 +309,22 @@ document.addEventListener('alpine:init', () => {
         get hasMessages() { return this.store.hasMessages; }
     }));
 
-
     // ============================================================
-    // 3. DASHBOARD COMPONENT (Decoupled from HTML)
+    // 3. DASHBOARD COMPONENT
     // ============================================================
     Alpine.data('dashboardComponent', () => ({
         threads: [],
         currentThreadId: null,
 
         init() {
-            // Load threads from JSON script
             const threadsElement = document.getElementById('threads-data');
             if (threadsElement) {
                 this.threads = JSON.parse(threadsElement.textContent);
             }
-            // Load current thread ID
             const threadIdElement = document.getElementById('current-thread-id');
             if (threadIdElement) {
                 this.currentThreadId = JSON.parse(threadIdElement.textContent);
             }
-            // Load chat history into the core store
             const historyElement = document.getElementById('chat-history');
             if (historyElement) {
                 const store = Alpine.store('chatEngine');
@@ -443,7 +418,7 @@ document.addEventListener('alpine:init', () => {
     }));
 
     // ============================================================
-    // 4. BUILDER COMPONENT (UPDATED: Redirect after AI Plan)
+    // 4. BUILDER COMPONENT (COMPLETE – With all methods)
     // ============================================================
     Alpine.data('builder', () => ({
         buildPlan: null,
@@ -453,10 +428,27 @@ document.addEventListener('alpine:init', () => {
         aiPlanTaskId: null,
         isUploading: false,
 
+        // ============================================
+        // PROGRESS OVERLAY STATE (Reactive)
+        // ============================================
+        buildProgress: 0,
+        buildStatusText: 'INITIALIZING BUILD PIPELINE...',
+        buildStatusMessages: [
+            'INITIALIZING BUILD PIPELINE...',
+            'PARSING PROJECT REQUIREMENTS...',
+            'GENERATING FILE TREE...',
+            'OPTIMIZING CODE STRUCTURE...',
+            'COMPILING ASSETS...',
+            'FINALIZING PROJECT...'
+        ],
+
         get store() { return Alpine.store('chatEngine'); },
         get messages() { return this.store.messages; },
 
-        async generateBuildPlan() {
+        // ============================================
+        // GENERATE AI PLAN (With Progress Overlay)
+        // ============================================
+        async generateAIPlan() {
             const lastUserMsg = this.messages.filter(m => m.role === 'user').pop();
             if (!lastUserMsg) {
                 alert('Please send a message describing what you want to build first.');
@@ -464,35 +456,8 @@ document.addEventListener('alpine:init', () => {
             }
 
             this.isBuilding = true;
-            try {
-                const response = await fetch('/api/builder/preview/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': this.store.getCsrfToken()
-                    },
-                    body: JSON.stringify({ description: lastUserMsg.content })
-                });
-                const data = await response.json();
-                if (data.status === 'success') {
-                    this.buildPlan = data.plan;
-                    this.buildResults = null;
-                    if (data.is_mock) this.buildPlan._is_mock = true;
-                } else {
-                    alert('Failed to generate plan.');
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
-            this.isBuilding = false;
-        },
-
-        async generateAIPlan() {
-            const lastUserMsg = this.messages.filter(m => m.role === 'user').pop();
-            if (!lastUserMsg) {
-                alert('Please send a message describing what you want to build first.');
-                return;
-            }
+            this.buildProgress = 0;
+            this.buildStatusText = 'INITIALIZING BUILD PIPELINE...';
 
             this.isAIPlanning = true;
             this.aiPlanTaskId = null;
@@ -514,10 +479,12 @@ document.addEventListener('alpine:init', () => {
                 } else {
                     alert('Failed to start AI plan generation.');
                     this.isAIPlanning = false;
+                    this.isBuilding = false;
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
                 this.isAIPlanning = false;
+                this.isBuilding = false;
             }
         },
 
@@ -527,21 +494,45 @@ document.addEventListener('alpine:init', () => {
                 const response = await fetch(`/api/builder/ai-plan/status/${this.aiPlanTaskId}/`);
                 const data = await response.json();
                 if (data.status === 'completed') {
-                    this.buildPlan = data.result;
-                    this.buildPlan._is_mock = false;
-                    this.isAIPlanning = false;
-                    this.aiPlanTaskId = null;
-                    
                     // ============================================================
-                    // SPRINT 5: REDIRECT TO STUDIO AFTER SUCCESSFUL GENERATION
+                    // SAVE THE PLAN AS A PROJECT IN THE DATABASE
                     // ============================================================
-                    window.location.href = '/studio/?plan_generated=true';
-                    
+                    const saveResponse = await fetch('/studio/api/projects/create/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.store.getCsrfToken()
+                        },
+                        body: JSON.stringify({ plan: data.result })
+                    });
+                    const saveData = await saveResponse.json();
+                    if (saveData.status === 'success') {
+                        const projectId = saveData.project_id;
+                        this.buildProgress = 100;
+                        this.buildStatusText = 'PROJECT GENERATED SUCCESSFULLY!';
+                        setTimeout(() => {
+                            this.isBuilding = false;
+                            window.location.href = `/studio/${projectId}/`;
+                        }, 1200);
+                    } else {
+                        alert('Failed to save project: ' + (saveData.error || 'Unknown error'));
+                        this.isAIPlanning = false;
+                        this.isBuilding = false;
+                    }
                 } else if (data.status === 'failed') {
                     alert('AI plan generation failed: ' + data.error);
                     this.isAIPlanning = false;
                     this.aiPlanTaskId = null;
+                    this.isBuilding = false;
                 } else {
+                    // Update progress
+                    const currentProgress = this.buildProgress;
+                    if (currentProgress < 90) {
+                        const newProgress = Math.min(currentProgress + 10, 90);
+                        const statusIndex = Math.floor(newProgress / 18);
+                        this.buildProgress = newProgress;
+                        this.buildStatusText = this.buildStatusMessages[statusIndex] || 'GENERATING PROJECT...';
+                    }
                     setTimeout(() => this.pollAIPlan(), 2000);
                 }
             } catch (e) {
@@ -550,6 +541,9 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        // ============================================
+        // EXECUTE BUILD PLAN (Approve & Execute)
+        // ============================================
         async executeBuildPlan() {
             if (!this.buildPlan) return;
             this.$dispatch('open-modal', {
@@ -585,6 +579,9 @@ document.addEventListener('alpine:init', () => {
             this.isBuilding = false;
         },
 
+        // ============================================
+        // OCR UPLOAD
+        // ============================================
         async uploadRequirements(event) {
             const file = event.target.files[0];
             if (!file) return;

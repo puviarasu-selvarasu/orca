@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}O.R.C.A. – Project Studio{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/studio.css' %}">
+    <!-- highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+
+<div class="studio-container" x-data="studioComponent({ projectId: {{ project_id|default:'null' }} })" x-init="init()">
+
+    <!-- ============================================
+    LEFT: FILE TREE
+    ============================================ -->
+    <div class="file-tree-panel">
+        <h3>📁 Project Files</h3>
+        <template x-for="(content, path) in files" :key="path">
+            <div class="file-item" :class="{'active': currentFile === path}" @click="openFile(path)">
+                <span class="icon">📄</span>
+                <span x-text="path"></span>
+            </div>
+        </template>
+        <div x-show="Object.keys(files).length === 0" style="color: var(--text-muted); font-size: 0.85em; padding: 20px; text-align: center;">
+            No files in this project.
+        </div>
+    </div>
+
+    <!-- ============================================
+    CENTER: CODE PREVIEW
+    ============================================ -->
+    <div class="code-panel">
+        <template x-if="currentFile">
+            <div>
+                <div class="file-header">
+                    <span class="path" x-text="currentFile"></span>
+                    <span style="font-size: 0.7em; color: var(--text-muted);">Lines: <span x-text="fileContent.split('\n').length"></span></span>
+                </div>
+                <pre><code x-html="fileContent"></code></pre>
+            </div>
+        </template>
+        <div x-show="!currentFile" class="empty-state">
+            <div class="icon">📂</div>
+            <span>Select a file from the tree to preview</span>
+        </div>
+    </div>
+
+    <!-- ============================================
+    RIGHT: CONTEXTUAL CHAT
+    ============================================ -->
+    <div class="context-chat">
+        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-glow); flex-shrink: 0;">
+            <span style="font-size: 0.75em; letter-spacing: 2px; color: var(--text-accent); font-family: var(--font-sci-fi);">💬 Project Chat</span>
+        </div>
+        <div class="chat-messages" id="studio-chat-messages">
+            <template x-for="(msg, index) in messages" :key="index">
+                <div class="message" :class="msg.role">
+                    <strong x-text="msg.role === 'user' ? 'You' : 'O.R.C.A.'"></strong><br>
+                    <span x-html="msg.content"></span>
+                </div>
+            </template>
+            <div x-show="isStreaming" class="message assistant">
+                <strong>O.R.C.A.</strong><br>
+                <span x-html="streamingContent"></span>
+                <span x-show="!streamingComplete" style="animation: blink 1s infinite; color: var(--text-accent);">▌</span>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <textarea rows="1" placeholder="Discuss this project..." 
+                      x-model="inputMessage" @keydown.enter.prevent="sendMessage()"></textarea>
+            <button @click="sendMessage()" :disabled="isLoading">
+                <span x-show="!isLoading">SEND</span>
+                <span x-show="isLoading">⏳</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- SCRIPTS -->
+<script src="{% static 'js/studio.js' %}"></script>
+
+{% endblock %}

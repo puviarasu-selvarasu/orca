@@ -69,4 +69,6 @@ urlpatterns = [
 
     path('api/self-improve/run/', self_improve_views.run_optimization, name='run_optimization'),
 
+    path('studio/', include('studio.urls')),
+
 ]

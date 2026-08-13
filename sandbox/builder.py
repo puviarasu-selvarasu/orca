@@ -10,6 +10,8 @@ from django.views.decorators.csrf import csrf_exempt
 from .filesystem import safe_write_file, safe_execute_command
 from .plan_generator import generate_plan
 
+from datetime import datetime
+
 # ============================================================
 # ORACLE INTEGRATION (Phase 9)
 # ============================================================
@@ -27,13 +29,15 @@ executor = ThreadPoolExecutor(max_workers=2)
 tasks = {}  # Simple in-memory task storage {task_id: {status, result}}
 
 def run_ai_plan_task(task_id, description):
-    """Background task: generates AI plan and stores it."""
     try:
         plan = generate_plan(description)
+        # If plan has a project_name, add a timestamp to make it unique
+        if 'project_name' in plan and not plan.get('error'):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            plan['project_name'] = f"{plan['project_name']}_{timestamp}"
         tasks[task_id] = {'status': 'completed', 'result': plan}
     except Exception as e:
         tasks[task_id] = {'status': 'failed', 'error': str(e)}
-
 
 # ============================================================
 # VIEW: INSTANT MOCK PLAN (Fast)
